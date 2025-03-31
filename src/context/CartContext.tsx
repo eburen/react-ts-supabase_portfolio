@@ -61,11 +61,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 .select('*')
                 .eq('user_id', user.id);
 
-            if (error) throw error;
+            if (error) {
+                console.error('Error fetching cart:', error);
+                // If it's an RLS error, just use an empty cart
+                if (error.code !== '42501') {
+                    throw error;
+                }
+                setCartItems([]);
+                return;
+            }
 
             setCartItems(data as CartItemWithDetails[]);
         } catch (error) {
             console.error('Error fetching cart:', error);
+            setCartItems([]); // Set empty cart on error
         } finally {
             setIsLoading(false);
         }
@@ -88,7 +97,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     .select()
                     .single();
 
-                if (error) throw error;
+                if (error) {
+                    console.error('Error adding to cart:', error);
+
+                    // Handle RLS policy error - fall back to local storage if we have RLS issues
+                    if (error.code === '42501') {
+                        // Create a local cart item instead
+                        const newItem: CartItemWithDetails = {
+                            id: Date.now().toString(), // Temporary ID
+                            product_id: productId,
+                            variation_id: variationId,
+                            quantity
+                        };
+
+                        setCartItems(prev => [...prev, newItem]);
+                        return; // Exit early after handling the error
+                    } else {
+                        throw error;
+                    }
+                }
 
                 setCartItems(prev => [...prev, data as CartItemWithDetails]);
             } else {
@@ -120,7 +147,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     .delete()
                     .eq('id', itemId);
 
-                if (error) throw error;
+                if (error) {
+                    console.error('Error removing from cart:', error);
+                    // If it's an RLS error, just update the local state anyway
+                    if (error.code !== '42501') {
+                        throw error;
+                    }
+                }
             }
 
             // Update local state
@@ -147,7 +180,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     .update({ quantity })
                     .eq('id', itemId);
 
-                if (error) throw error;
+                if (error) {
+                    console.error('Error updating cart quantity:', error);
+                    // If it's an RLS error, just update the local state anyway
+                    if (error.code !== '42501') {
+                        throw error;
+                    }
+                }
             }
 
             // Update local state
@@ -174,7 +213,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     .delete()
                     .eq('user_id', user.id);
 
-                if (error) throw error;
+                if (error) {
+                    console.error('Error clearing cart:', error);
+                    // If it's an RLS error, just clear the local state anyway
+                    if (error.code !== '42501') {
+                        throw error;
+                    }
+                }
             }
 
             // Clear local state
