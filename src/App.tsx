@@ -9,10 +9,11 @@ import ShopPage from './pages/customer/ShopPage';
 import ProductPage from './pages/customer/ProductPage';
 import CartPage from './pages/customer/CartPage';
 import LoginPage from './pages/customer/LoginPage';
+import RegisterPage from './pages/customer/RegisterPage';
+import ProfilePage from './pages/customer/ProfilePage';
 
 // Pages to be created later
 const CheckoutPage = () => <div className="min-h-screen bg-gray-50 p-8">Checkout Page Coming Soon</div>;
-const RegisterPage = () => <div className="min-h-screen bg-gray-50 p-8">Register Page Coming Soon</div>;
 const DashboardPage = () => <div className="min-h-screen bg-gray-50 p-8">Admin Dashboard Coming Soon</div>;
 const NotFoundPage = () => <div className="min-h-screen bg-gray-50 p-8">404 - Page Not Found</div>;
 
@@ -66,6 +67,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <CheckoutPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
               </ProtectedRoute>
             }
           />

@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
-import { CartItem, Product, ProductVariation } from '../types';
+import { CartItem } from '../types';
 
 // Extended CartItem for UI display with product details
 export interface CartItemWithDetails extends CartItem {

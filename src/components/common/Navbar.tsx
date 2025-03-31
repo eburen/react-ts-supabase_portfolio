@@ -67,9 +67,12 @@ export default function Navbar() {
                         <div className="ml-3 relative">
                             {user ? (
                                 <div className="flex items-center space-x-3">
-                                    <span className="text-sm font-medium text-gray-700">
+                                    <Link
+                                        to="/profile"
+                                        className="text-sm font-medium text-gray-700 hover:text-indigo-600"
+                                    >
                                         {user.full_name || user.email}
-                                    </span>
+                                    </Link>
                                     <button
                                         onClick={handleSignOut}
                                         className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -171,6 +174,13 @@ export default function Navbar() {
                                 <div className="text-sm font-medium text-gray-500">{user.email}</div>
                             </div>
                             <div className="mt-3 space-y-1">
+                                <Link
+                                    to="/profile"
+                                    className="block w-full text-left px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+                                    onClick={() => setIsMenuOpen(false)}
+                                >
+                                    Profile
+                                </Link>
                                 <button
                                     onClick={handleSignOut}
                                     className="block w-full text-left px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"

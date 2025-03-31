@@ -1,42 +1,55 @@
 import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
-const LoginPage = () => {
+const RegisterPage = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [fullName, setFullName] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const { signIn } = useAuth();
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const { signUp } = useAuth();
     const navigate = useNavigate();
-    const location = useLocation();
-
-    // Get the redirectTo parameter from the URL query or use default path
-    const searchParams = new URLSearchParams(location.search);
-    const redirectPath = searchParams.get('redirectTo') || '/';
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
+        setSuccessMessage(null);
         setLoading(true);
 
         try {
             // Validate form
-            if (!email.trim() || !password.trim()) {
-                throw new Error('Please enter both email and password');
+            if (!email.trim() || !password.trim() || !confirmPassword.trim() || !fullName.trim()) {
+                throw new Error('Please fill in all fields');
             }
 
-            // Try login
-            const { error: signInError } = await signIn(email, password);
-
-            if (signInError) {
-                throw new Error(signInError.message || 'Invalid email or password');
+            if (password !== confirmPassword) {
+                throw new Error('Passwords do not match');
             }
 
-            // Redirect after successful login
-            navigate(redirectPath);
+            if (password.length < 6) {
+                throw new Error('Password must be at least 6 characters long');
+            }
+
+            // Try registration
+            const { error: signUpError, user } = await signUp(email, password, {
+                full_name: fullName,
+            });
+
+            if (signUpError) {
+                throw new Error(signUpError.message || 'Registration failed');
+            }
+
+            if (user) {
+                setSuccessMessage('Registration successful! You can now login.');
+                setTimeout(() => navigate('/login'), 2000);
+            } else {
+                setSuccessMessage('Registration successful! Please check your email for verification.');
+            }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Login failed');
+            setError(err instanceof Error ? err.message : 'Registration failed');
         } finally {
             setLoading(false);
         }
@@ -46,12 +59,12 @@ const LoginPage = () => {
         <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
             <div className="sm:mx-auto sm:w-full sm:max-w-md">
                 <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                    Sign in to your account
+                    Create your account
                 </h2>
                 <p className="mt-2 text-center text-sm text-gray-600">
                     Or{' '}
-                    <Link to="/register" className="font-medium text-blue-600 hover:text-blue-500">
-                        create a new account
+                    <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500">
+                        sign in to your existing account
                     </Link>
                 </p>
             </div>
@@ -64,7 +77,31 @@ const LoginPage = () => {
                         </div>
                     )}
 
+                    {successMessage && (
+                        <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+                            <span className="block sm:inline">{successMessage}</span>
+                        </div>
+                    )}
+
                     <form className="space-y-6" onSubmit={handleSubmit}>
+                        <div>
+                            <label htmlFor="full-name" className="block text-sm font-medium text-gray-700">
+                                Full name
+                            </label>
+                            <div className="mt-1">
+                                <input
+                                    id="full-name"
+                                    name="full-name"
+                                    type="text"
+                                    autoComplete="name"
+                                    required
+                                    value={fullName}
+                                    onChange={(e) => setFullName(e.target.value)}
+                                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                />
+                            </div>
+                        </div>
+
                         <div>
                             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                                 Email address
@@ -92,7 +129,7 @@ const LoginPage = () => {
                                     id="password"
                                     name="password"
                                     type="password"
-                                    autoComplete="current-password"
+                                    autoComplete="new-password"
                                     required
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
@@ -101,23 +138,21 @@ const LoginPage = () => {
                             </div>
                         </div>
 
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center">
+                        <div>
+                            <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700">
+                                Confirm password
+                            </label>
+                            <div className="mt-1">
                                 <input
-                                    id="remember-me"
-                                    name="remember-me"
-                                    type="checkbox"
-                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    id="confirm-password"
+                                    name="confirm-password"
+                                    type="password"
+                                    autoComplete="new-password"
+                                    required
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                                 />
-                                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
-                                    Remember me
-                                </label>
-                            </div>
-
-                            <div className="text-sm">
-                                <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
-                                    Forgot your password?
-                                </a>
                             </div>
                         </div>
 
@@ -128,7 +163,7 @@ const LoginPage = () => {
                                 className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${loading ? 'opacity-75 cursor-not-allowed' : ''
                                     }`}
                             >
-                                {loading ? 'Signing in...' : 'Sign in'}
+                                {loading ? 'Creating account...' : 'Create account'}
                             </button>
                         </div>
                     </form>
@@ -149,7 +184,7 @@ const LoginPage = () => {
                                     href="#"
                                     className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
                                 >
-                                    <span className="sr-only">Sign in with Google</span>
+                                    <span className="sr-only">Sign up with Google</span>
                                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z" />
                                     </svg>
@@ -161,7 +196,7 @@ const LoginPage = () => {
                                     href="#"
                                     className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
                                 >
-                                    <span className="sr-only">Sign in with GitHub</span>
+                                    <span className="sr-only">Sign up with GitHub</span>
                                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                                         <path
                                             fillRule="evenodd"
@@ -179,4 +214,4 @@ const LoginPage = () => {
     );
 };
 
-export default LoginPage; 
+export default RegisterPage; 

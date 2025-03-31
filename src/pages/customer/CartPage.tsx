@@ -153,7 +153,7 @@ const CartPage = () => {
                                                                 </p>
                                                             )}
                                                             <p className="mt-1 text-lg font-medium text-gray-900">
-                                                                ${item.price.toFixed(2)}
+                                                                ${item.price?.toFixed(2) || '0.00'}
                                                             </p>
                                                         </div>
 
@@ -184,9 +184,8 @@ const CartPage = () => {
                                                             </button>
                                                         </div>
                                                     </div>
-
                                                     <p className="mt-2 text-sm text-gray-600">
-                                                        Subtotal: ${(item.price * item.quantity).toFixed(2)}
+                                                        Subtotal: ${((item.price ?? 0) * item.quantity).toFixed(2)}
                                                     </p>
                                                 </div>
                                             </div>
