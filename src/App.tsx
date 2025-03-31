@@ -2,6 +2,9 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Navbar from './components/common/Navbar';
 import SupabaseConnectionTest from './components/common/SupabaseConnectionTest';
+// Import Tailwind directly if needed
+import './index.css';
+// Remove App.css import if it exists
 
 // Import pages
 import HomePage from './pages/customer/HomePage';

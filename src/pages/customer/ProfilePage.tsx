@@ -105,8 +105,8 @@ const ProfilePage = () => {
                             <button
                                 onClick={() => setActiveTab('profile')}
                                 className={`${activeTab === 'profile'
-                                        ? 'border-blue-500 text-blue-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                     } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
                             >
                                 Profile
@@ -114,8 +114,8 @@ const ProfilePage = () => {
                             <button
                                 onClick={() => setActiveTab('orders')}
                                 className={`${activeTab === 'orders'
-                                        ? 'border-blue-500 text-blue-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                     } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
                             >
                                 Orders
@@ -123,8 +123,8 @@ const ProfilePage = () => {
                             <button
                                 onClick={() => setActiveTab('addresses')}
                                 className={`${activeTab === 'addresses'
-                                        ? 'border-blue-500 text-blue-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    ? 'border-blue-500 text-blue-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                     } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm`}
                             >
                                 Addresses
@@ -245,14 +245,14 @@ const ProfilePage = () => {
                                                     <div>
                                                         <span
                                                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${order.status === 'delivered'
-                                                                    ? 'bg-green-100 text-green-800'
-                                                                    : order.status === 'shipped'
-                                                                        ? 'bg-blue-100 text-blue-800'
-                                                                        : order.status === 'processing'
-                                                                            ? 'bg-yellow-100 text-yellow-800'
-                                                                            : order.status === 'cancelled'
-                                                                                ? 'bg-red-100 text-red-800'
-                                                                                : 'bg-gray-100 text-gray-800'
+                                                                ? 'bg-green-100 text-green-800'
+                                                                : order.status === 'shipped'
+                                                                    ? 'bg-blue-100 text-blue-800'
+                                                                    : order.status === 'processing'
+                                                                        ? 'bg-yellow-100 text-yellow-800'
+                                                                        : order.status === 'cancelled'
+                                                                            ? 'bg-red-100 text-red-800'
+                                                                            : 'bg-gray-100 text-gray-800'
                                                                 }`}
                                                         >
                                                             {order.status.charAt(0).toUpperCase() + order.status.slice(1)}

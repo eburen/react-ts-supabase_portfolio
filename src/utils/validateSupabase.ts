@@ -7,7 +7,8 @@ import { supabase } from '../lib/supabase';
 export const validateSupabaseConnection = async (): Promise<boolean> => {
     try {
         // Simple query to check if we can connect to Supabase
-        const { data, error } = await supabase.from('products').select('count()', { count: 'exact' }).limit(1);
+        // Avoid using count() aggregate function since it's not allowed
+        const { data, error } = await supabase.from('products').select('id').limit(1);
 
         if (error) {
             console.error('Supabase connection error:', error);
