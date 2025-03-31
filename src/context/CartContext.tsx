@@ -3,21 +3,31 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { CartItem, Product, ProductVariation } from '../types';
 
+// Extended CartItem for UI display with product details
+export interface CartItemWithDetails extends CartItem {
+    name?: string;
+    price?: number;
+    image?: string | null;
+    productId?: string;
+    variationName?: string | null;
+}
+
 interface CartContextType {
-    cartItems: CartItem[];
+    cartItems: CartItemWithDetails[];
     isLoading: boolean;
     addToCart: (productId: string, quantity: number, variationId?: string) => Promise<void>;
     removeFromCart: (itemId: string) => Promise<void>;
     updateQuantity: (itemId: string, quantity: number) => Promise<void>;
     clearCart: () => Promise<void>;
     totalItems: number;
-    subTotal: number;
+    cartTotal: number;
+    updateCartItemQuantity: (itemId: string, quantity: number) => Promise<void>;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-    const [cartItems, setCartItems] = useState<CartItem[]>([]);
+    const [cartItems, setCartItems] = useState<CartItemWithDetails[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { user } = useAuth();
 
@@ -53,7 +63,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
             if (error) throw error;
 
-            setCartItems(data as CartItem[]);
+            setCartItems(data as CartItemWithDetails[]);
         } catch (error) {
             console.error('Error fetching cart:', error);
         } finally {
@@ -80,10 +90,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
                 if (error) throw error;
 
-                setCartItems(prev => [...prev, data as CartItem]);
+                setCartItems(prev => [...prev, data as CartItemWithDetails]);
             } else {
                 // For anonymous users, save to state/localStorage
-                const newItem: CartItem = {
+                const newItem: CartItemWithDetails = {
                     id: Date.now().toString(), // Temporary ID
                     product_id: productId,
                     variation_id: variationId,
@@ -184,9 +194,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     // Calculate total items in cart
     const totalItems = cartItems.reduce((total, item) => total + item.quantity, 0);
 
-    // We'll calculate subtotal in a real app by fetching product prices
-    // This is a placeholder implementation
-    const subTotal = 0;
+    // Calculate cart total
+    const cartTotal = cartItems.reduce((total, item) => {
+        const price = item.price || 0;
+        return total + (price * item.quantity);
+    }, 0);
+
+    // Alias for updateQuantity to match the CartPage interface
+    const updateCartItemQuantity = updateQuantity;
 
     const value = {
         cartItems,
@@ -196,7 +211,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         updateQuantity,
         clearCart,
         totalItems,
-        subTotal
+        cartTotal,
+        updateCartItemQuantity
     };
 
     return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

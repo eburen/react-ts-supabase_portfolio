@@ -1,20 +1,23 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Navbar from './components/common/Navbar';
+import SupabaseConnectionTest from './components/common/SupabaseConnectionTest';
+
+// Import pages
+import HomePage from './pages/customer/HomePage';
+import ShopPage from './pages/customer/ShopPage';
+import ProductPage from './pages/customer/ProductPage';
+import CartPage from './pages/customer/CartPage';
+import LoginPage from './pages/customer/LoginPage';
 
 // Pages to be created later
-const HomePage = () => <div className="min-h-screen bg-gray-50 p-8">Home Page Coming Soon</div>;
-const ShopPage = () => <div className="min-h-screen bg-gray-50 p-8">Shop Page Coming Soon</div>;
-const ProductPage = () => <div className="min-h-screen bg-gray-50 p-8">Product Details Coming Soon</div>;
-const CartPage = () => <div className="min-h-screen bg-gray-50 p-8">Cart Page Coming Soon</div>;
 const CheckoutPage = () => <div className="min-h-screen bg-gray-50 p-8">Checkout Page Coming Soon</div>;
-const LoginPage = () => <div className="min-h-screen bg-gray-50 p-8">Login Page Coming Soon</div>;
 const RegisterPage = () => <div className="min-h-screen bg-gray-50 p-8">Register Page Coming Soon</div>;
 const DashboardPage = () => <div className="min-h-screen bg-gray-50 p-8">Admin Dashboard Coming Soon</div>;
 const NotFoundPage = () => <div className="min-h-screen bg-gray-50 p-8">404 - Page Not Found</div>;
 
 // Protected route component
-const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -29,7 +32,7 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
 };
 
 // Admin route component
-const AdminRoute = ({ children }: { children: JSX.Element }) => {
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -86,6 +89,9 @@ function App() {
           <p className="text-center">© {new Date().getFullYear()} E-Store. All rights reserved.</p>
         </div>
       </footer>
+
+      {/* Supabase connection test */}
+      <SupabaseConnectionTest />
     </div>
   );
 }

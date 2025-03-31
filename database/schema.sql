@@ -19,6 +19,7 @@ CREATE TABLE products (
   base_price DECIMAL(10, 2) NOT NULL CHECK (base_price >= 0),
   images TEXT[] DEFAULT '{}',
   category TEXT NOT NULL,
+  average_rating DECIMAL(3, 2),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
