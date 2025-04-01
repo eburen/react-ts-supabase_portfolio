@@ -15,7 +15,10 @@
     "supabase:generate:types": "supabase gen types typescript --local > src/types/supabase.ts",
     "db:schema": "ts-node scripts/runSqlOnSupabase.ts --schema",
     "db:sample": "ts-node scripts/runSqlOnSupabase.ts --sample-data",
-    "db:setup": "ts-node scripts/runSqlOnSupabase.ts --all"
+    "db:setup": "ts-node scripts/runSqlOnSupabase.ts --all",
+    "fix:cart-rls": "node scripts/fix_cart_rls.js",
+    "fix:address-rls": "node scripts/fix_address_rls.js",
+    "update:order-schema": "node scripts/apply_order_schema_update.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",

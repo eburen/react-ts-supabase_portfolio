@@ -94,7 +94,18 @@ const CartPage = () => {
             }
             return;
         }
-        navigate('/checkout');
+
+        // Check if cart is empty
+        if (cartItems.length === 0) {
+            alert('Your cart is empty. Please add items before checkout.');
+            return;
+        }
+
+        // Set a flag in localStorage to indicate we're coming from the cart page with items
+        localStorage.setItem('validCheckout', 'true');
+
+        // Navigate to checkout
+        navigate('/checkout', { replace: true });
     };
 
     return (
@@ -129,11 +140,15 @@ const CartPage = () => {
                                         <div className="ml-4 flex-1 flex flex-col">
                                             <div>
                                                 <div className="flex justify-between text-base font-medium text-gray-900">
-                                                    <h3>{item.name || 'Product'}</h3>
+                                                    <h3>
+                                                        <Link to={`/product/${item.product_id}`}>
+                                                            {item.name || 'Product'}
+                                                        </Link>
+                                                    </h3>
                                                     <p className="ml-4">${((item.price || 0) * item.quantity).toFixed(2)}</p>
                                                 </div>
-                                                {item.variationName && (
-                                                    <p className="mt-1 text-sm text-gray-500">{item.variationName}</p>
+                                                {item.variation_name && (
+                                                    <p className="mt-1 text-sm text-gray-500">Variation: {item.variation_name}</p>
                                                 )}
                                                 <p className="mt-1 text-sm text-gray-500">${(item.price || 0).toFixed(2)} each</p>
                                             </div>

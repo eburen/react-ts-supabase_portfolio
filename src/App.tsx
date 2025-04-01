@@ -14,18 +14,12 @@ import CartPage from './pages/customer/CartPage';
 import LoginPage from './pages/customer/LoginPage';
 import RegisterPage from './pages/customer/RegisterPage';
 import ProfilePage from './pages/customer/ProfilePage';
+import AddressFormPage from './pages/customer/AddressFormPage';
+import AddressesPage from './pages/customer/AddressesPage';
+import CheckoutPage from './pages/customer/CheckoutPage';
+import OrderConfirmationPage from './pages/customer/OrderConfirmationPage';
 
 // Pages to be created later
-const CheckoutPage = () => (
-  <div className="container mx-auto px-4 py-16 min-h-screen flex items-center justify-center">
-    <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Checkout Coming Soon</h1>
-      <p className="text-gray-600 mb-6">We're working on building a seamless checkout experience for you.</p>
-      <Link to="/cart" className="text-indigo-600 hover:text-indigo-800 font-medium">Return to Cart</Link>
-    </div>
-  </div>
-);
-
 const DashboardPage = () => (
   <div className="container mx-auto px-4 py-16 min-h-screen flex items-center justify-center">
     <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
@@ -118,10 +112,45 @@ function App() {
           />
 
           <Route
+            path="/order-confirmation/:orderId"
+            element={
+              <ProtectedRoute>
+                <OrderConfirmationPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/profile"
             element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Address routes */}
+          <Route
+            path="/account/addresses"
+            element={
+              <ProtectedRoute>
+                <AddressesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/account/addresses/new"
+            element={
+              <ProtectedRoute>
+                <AddressFormPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/account/addresses/edit/:id"
+            element={
+              <ProtectedRoute>
+                <AddressFormPage />
               </ProtectedRoute>
             }
           />

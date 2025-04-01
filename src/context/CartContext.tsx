@@ -1,19 +1,14 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
-import { CartItem } from '../types';
+import { CheckoutCartItem } from '../types/checkout';
 
-// Extended CartItem for UI display with product details
-export interface CartItemWithDetails extends CartItem {
-    name?: string;
-    price?: number;
-    image?: string | null;
-    productId?: string;
-    variationName?: string | null;
-}
+// Use the CheckoutCartItem type for UI display with product details
+export type CartItemWithDetails = CheckoutCartItem;
 
-interface CartContextType {
-    cartItems: CartItemWithDetails[];
+export interface CartContextType {
+    cartItems: CheckoutCartItem[];
+    cart: CheckoutCartItem[]; // Add cart as an alias for cartItems
     isLoading: boolean;
     addToCart: (productId: string, quantity: number, variationId?: string) => Promise<void>;
     removeFromCart: (itemId: string) => Promise<void>;
@@ -31,34 +26,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
     const { user } = useAuth();
 
-    useEffect(() => {
-        if (user) {
-            fetchCart();
-        } else {
-            // Load cart from local storage for anonymous users
-            const storedCart = localStorage.getItem('cart');
-            if (storedCart) {
-                setCartItems(JSON.parse(storedCart));
-            }
-            setIsLoading(false);
-        }
-    }, [user]);
-
-    // Save cart to localStorage when it changes (for anonymous users)
-    useEffect(() => {
-        if (!user && cartItems.length > 0) {
-            localStorage.setItem('cart', JSON.stringify(cartItems));
-        }
-    }, [cartItems, user]);
-
-    const fetchCart = async () => {
+    const fetchCart = useCallback(async () => {
         if (!user) return;
 
         setIsLoading(true);
         try {
+            // Join with products table to get product details
             const { data, error } = await supabase
                 .from('cart_items')
-                .select('*')
+                .select(`
+                    *,
+                    product:products(id, name, base_price, images),
+                    variation:product_variations(id, name, price_adjustment)
+                `)
                 .eq('user_id', user.id);
 
             if (error) {
@@ -71,19 +51,136 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 return;
             }
 
-            setCartItems(data as CartItemWithDetails[]);
+            // Transform the data to include product details
+            const cartItemsWithDetails = data.map((item: {
+                id: string;
+                product_id: string;
+                variation_id: string | null;
+                quantity: number;
+                product?: {
+                    id: string;
+                    name: string;
+                    base_price: number;
+                    images: string[] | null;
+                };
+                variation?: {
+                    id: string;
+                    name: string;
+                    price_adjustment: number;
+                };
+            }) => ({
+                id: item.id,
+                product_id: item.product_id,
+                variation_id: item.variation_id,
+                quantity: item.quantity,
+                // Add product details
+                name: item.product?.name || 'Product',
+                price: item.product?.base_price || 0,
+                image: item.product?.images?.[0] || '/images/placeholder.jpg',
+                variation_name: item.variation?.name || null
+            }));
+
+            setCartItems(cartItemsWithDetails);
         } catch (error) {
             console.error('Error fetching cart:', error);
             setCartItems([]); // Set empty cart on error
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [user]);
+
+    useEffect(() => {
+        if (user) {
+            fetchCart();
+        } else {
+            // Load cart from local storage for anonymous users
+            const storedCart = localStorage.getItem('cart');
+            if (storedCart) {
+                setCartItems(JSON.parse(storedCart));
+            }
+            setIsLoading(false);
+        }
+    }, [user, fetchCart]);
+
+    // Save cart to localStorage when it changes (for anonymous users)
+    useEffect(() => {
+        if (!user && cartItems.length > 0) {
+            localStorage.setItem('cart', JSON.stringify(cartItems));
+        }
+    }, [cartItems, user]);
 
     const addToCart = async (productId: string, quantity: number, variationId?: string) => {
         setIsLoading(true);
 
         try {
+            // First, fetch the product details
+            const { data: productData, error: productError } = await supabase
+                .from('products')
+                .select('id, name, base_price, images')
+                .eq('id', productId)
+                .single();
+
+            if (productError) {
+                console.error('Error fetching product details:', productError);
+                throw productError;
+            }
+
+            // Fetch variation details if a variation is selected
+            let variationData = null;
+            if (variationId) {
+                const { data, error } = await supabase
+                    .from('product_variations')
+                    .select('id, name, price_adjustment')
+                    .eq('id', variationId)
+                    .single();
+
+                if (!error) {
+                    variationData = data;
+                }
+            }
+
+            // Calculate the final price (base price + variation adjustment if any)
+            const finalPrice = productData.base_price + (variationData?.price_adjustment || 0);
+
+            // Check if the same product (and variation if applicable) already exists in the cart
+            const existingItemIndex = cartItems.findIndex(
+                item => item.product_id === productId &&
+                    ((!variationId && !item.variation_id) || item.variation_id === variationId)
+            );
+
+            // If the product already exists in the cart, update its quantity instead of adding a new item
+            if (existingItemIndex !== -1) {
+                const existingItem = cartItems[existingItemIndex];
+                const newQuantity = existingItem.quantity + quantity;
+
+                if (user) {
+                    // For logged in users, update the database
+                    const { error } = await supabase
+                        .from('cart_items')
+                        .update({ quantity: newQuantity })
+                        .eq('id', existingItem.id);
+
+                    if (error) {
+                        console.error('Error updating cart quantity:', error);
+                        if (error.code !== '42501') {
+                            throw error;
+                        }
+                    }
+                }
+
+                // Update local state
+                const updatedCartItems = [...cartItems];
+                updatedCartItems[existingItemIndex] = {
+                    ...existingItem,
+                    quantity: newQuantity
+                };
+
+                setCartItems(updatedCartItems);
+                setIsLoading(false);
+                return;
+            }
+
+            // If the product is not already in the cart, add it as a new item
             if (user) {
                 // For logged in users, save to database
                 const { data, error } = await supabase
@@ -102,12 +199,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
                     // Handle RLS policy error - fall back to local storage if we have RLS issues
                     if (error.code === '42501') {
-                        // Create a local cart item instead
+                        // Create a local cart item instead with product details
                         const newItem: CartItemWithDetails = {
                             id: Date.now().toString(), // Temporary ID
                             product_id: productId,
                             variation_id: variationId,
-                            quantity
+                            quantity,
+                            // Add product details
+                            name: productData.name,
+                            price: finalPrice,
+                            image: productData.images?.[0] || '/images/placeholder.jpg',
+                            variation_name: variationData?.name || null
                         };
 
                         setCartItems(prev => [...prev, newItem]);
@@ -117,14 +219,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     }
                 }
 
-                setCartItems(prev => [...prev, data as CartItemWithDetails]);
+                // Add product details to the cart item
+                const newItem: CartItemWithDetails = {
+                    ...data,
+                    name: productData.name,
+                    price: finalPrice,
+                    image: productData.images?.[0] || '/images/placeholder.jpg',
+                    variation_name: variationData?.name || null
+                };
+
+                setCartItems(prev => [...prev, newItem]);
             } else {
-                // For anonymous users, save to state/localStorage
+                // For anonymous users, save to state/localStorage with product details
                 const newItem: CartItemWithDetails = {
                     id: Date.now().toString(), // Temporary ID
                     product_id: productId,
                     variation_id: variationId,
-                    quantity
+                    quantity,
+                    // Add product details
+                    name: productData.name,
+                    price: finalPrice,
+                    image: productData.images?.[0] || '/images/placeholder.jpg',
+                    variation_name: variationData?.name || null
                 };
 
                 setCartItems(prev => [...prev, newItem]);
@@ -250,6 +366,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     const value = {
         cartItems,
+        cart: cartItems,
         isLoading,
         addToCart,
         removeFromCart,
@@ -266,7 +383,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
 export function useCart() {
     const context = useContext(CartContext);
     if (context === undefined) {
-        throw new Error('useCart must be used within a CartProvider');
+        console.error('useCart must be used within a CartProvider');
+        // Return a default implementation to prevent app crashes
+        return {
+            cartItems: [],
+            cart: [],
+            isLoading: false,
+            addToCart: async () => { },
+            removeFromCart: async () => { },
+            updateQuantity: async () => { },
+            clearCart: async () => { },
+            totalItems: 0,
+            cartTotal: 0,
+            updateCartItemQuantity: async () => { }
+        };
     }
     return context;
 } 

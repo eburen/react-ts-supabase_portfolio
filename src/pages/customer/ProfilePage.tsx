@@ -13,6 +13,7 @@ const ProfilePage = () => {
     const [orders, setOrders] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [updateLoading, setUpdateLoading] = useState(false);
+    const [addressActionLoading, setAddressActionLoading] = useState<{ [key: string]: boolean }>({});
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
@@ -86,6 +87,72 @@ const ProfilePage = () => {
     const handleLogout = async () => {
         await signOut();
         navigate('/login');
+    };
+
+    const handleSetDefaultAddress = async (addressId: string) => {
+        if (!user) return;
+
+        setAddressActionLoading(prev => ({ ...prev, [addressId]: true }));
+
+        try {
+            // First, set all addresses to non-default
+            await supabase
+                .from('shipping_addresses')
+                .update({ is_default: false })
+                .eq('user_id', user.id);
+
+            // Then, set the selected address as default
+            const { error } = await supabase
+                .from('shipping_addresses')
+                .update({ is_default: true })
+                .eq('id', addressId)
+                .eq('user_id', user.id);
+
+            if (error) throw error;
+
+            // Update the local state
+            setAddresses(addresses.map(address => ({
+                ...address,
+                is_default: address.id === addressId
+            })));
+
+            setSuccess('Default address updated successfully');
+        } catch (error) {
+            console.error('Error setting default address:', error);
+            setError('Failed to set default address');
+        } finally {
+            setAddressActionLoading(prev => ({ ...prev, [addressId]: false }));
+        }
+    };
+
+    const handleDeleteAddress = async (addressId: string) => {
+        if (!user) return;
+
+        if (!window.confirm('Are you sure you want to delete this address?')) {
+            return;
+        }
+
+        setAddressActionLoading(prev => ({ ...prev, [addressId]: true }));
+
+        try {
+            const { error } = await supabase
+                .from('shipping_addresses')
+                .delete()
+                .eq('id', addressId)
+                .eq('user_id', user.id);
+
+            if (error) throw error;
+
+            // Update the local state
+            setAddresses(addresses.filter(address => address.id !== addressId));
+
+            setSuccess('Address deleted successfully');
+        } catch (error) {
+            console.error('Error deleting address:', error);
+            setError('Failed to delete address');
+        } finally {
+            setAddressActionLoading(prev => ({ ...prev, [addressId]: false }));
+        }
     };
 
     if (loading) {
@@ -342,21 +409,25 @@ const ProfilePage = () => {
                                                 <div className="mt-4 flex space-x-4">
                                                     <button
                                                         onClick={() => navigate(`/account/addresses/edit/${address.id}`)}
-                                                        className="text-sm font-medium text-blue-600 hover:text-blue-500"
+                                                        className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
                                                     >
                                                         Edit
                                                     </button>
                                                     {!address.is_default && (
                                                         <button
-                                                            className="text-sm font-medium text-blue-600 hover:text-blue-500"
+                                                            onClick={() => handleSetDefaultAddress(address.id)}
+                                                            disabled={addressActionLoading[address.id]}
+                                                            className="text-sm font-medium text-indigo-600 hover:text-indigo-500 disabled:opacity-50"
                                                         >
-                                                            Set as Default
+                                                            {addressActionLoading[address.id] ? 'Setting...' : 'Set as Default'}
                                                         </button>
                                                     )}
                                                     <button
-                                                        className="text-sm font-medium text-red-600 hover:text-red-500"
+                                                        onClick={() => handleDeleteAddress(address.id)}
+                                                        disabled={addressActionLoading[address.id]}
+                                                        className="text-sm font-medium text-red-600 hover:text-red-500 disabled:opacity-50"
                                                     >
-                                                        Delete
+                                                        {addressActionLoading[address.id] ? 'Deleting...' : 'Delete'}
                                                     </button>
                                                 </div>
                                             </div>

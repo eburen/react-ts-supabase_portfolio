@@ -1,0 +1,127 @@
+.address-form-container {
+  max-width: 768px;
+  margin: 0 auto;
+  padding: 2rem;
+  background-color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.address-form-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 1.5rem;
+}
+
+.address-form-group {
+  margin-bottom: 1.5rem;
+}
+
+.address-form-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.5rem;
+}
+
+.address-form-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.address-form-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.address-form-checkbox-group {
+  display: flex;
+  align-items: center;
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.address-form-checkbox {
+  margin-right: 0.5rem;
+}
+
+.address-form-error {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background-color: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 0.375rem;
+  color: #b91c1c;
+  font-size: 0.875rem;
+}
+
+.address-form-success {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background-color: #d1fae5;
+  border: 1px solid #6ee7b7;
+  border-radius: 0.375rem;
+  color: #047857;
+  font-size: 0.875rem;
+}
+
+.address-form-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2rem;
+}
+
+.address-form-button {
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.address-form-button-primary {
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+}
+
+.address-form-button-primary:hover {
+  background-color: #2563eb;
+}
+
+.address-form-button-primary:disabled {
+  background-color: #93c5fd;
+  cursor: not-allowed;
+}
+
+.address-form-button-secondary {
+  background-color: white;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+}
+
+.address-form-button-secondary:hover {
+  background-color: #f3f4f6;
+}
+
+@media (max-width: 640px) {
+  .address-form-container {
+    padding: 1.5rem;
+  }
+  
+  .address-form-buttons {
+    flex-direction: column-reverse;
+    gap: 0.75rem;
+  }
+  
+  .address-form-button {
+    width: 100%;
+  }
+} 

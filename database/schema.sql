@@ -63,29 +63,38 @@ CREATE TABLE shipping_addresses (
 );
 
 -- Orders
-CREATE TABLE orders (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES users ON DELETE CASCADE,
-  status TEXT NOT NULL CHECK (status IN ('pending', 'processing', 'shipped', 'delivered', 'cancelled', 'returned')) DEFAULT 'pending',
-  total DECIMAL(10, 2) NOT NULL CHECK (total >= 0),
-  shipping_address_id UUID REFERENCES shipping_addresses,
-  coupon_id UUID, -- Will add coupon table later
-  discount_amount DECIMAL(10, 2) DEFAULT 0 CHECK (discount_amount >= 0),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS public.orders (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES auth.users NOT NULL,
+    total DECIMAL(10, 2) NOT NULL,
+    status VARCHAR(50) DEFAULT 'pending',
+    shipping_address JSONB,
+    payment_method VARCHAR(50) DEFAULT 'credit_card',
+    payment_status VARCHAR(50) DEFAULT 'pending',
+    delivery_date DATE,
+    delivery_time VARCHAR(50),
+    gift_wrapping BOOLEAN DEFAULT false,
+    gift_note TEXT,
+    special_instructions TEXT,
+    express_shipping BOOLEAN DEFAULT false,
+    shipping_fee DECIMAL(10, 2) DEFAULT 0,
+    gift_wrapping_fee DECIMAL(10, 2) DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
 -- Order Items
-CREATE TABLE order_items (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  order_id UUID NOT NULL REFERENCES orders ON DELETE CASCADE,
-  product_id UUID NOT NULL REFERENCES products,
-  product_name TEXT NOT NULL, -- Store product name at time of purchase
-  variation_id UUID REFERENCES product_variations,
-  variation_name TEXT, -- Store variation name at time of purchase
-  quantity INTEGER NOT NULL CHECK (quantity > 0),
-  price DECIMAL(10, 2) NOT NULL CHECK (price >= 0), -- Price at time of purchase
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS public.order_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    order_id UUID REFERENCES public.orders NOT NULL,
+    product_id UUID REFERENCES public.products,
+    product_name VARCHAR(255) NOT NULL,
+    variation_id UUID REFERENCES public.product_variations,
+    variation_name VARCHAR(255),
+    quantity INTEGER NOT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
 -- Cart Items
