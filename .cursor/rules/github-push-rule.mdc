@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Your rule content
+
+- When performing or suggesting Git operations after code changes, you may stage files (git add) and create commits (git commit). However, you MUST NOT perform or suggest 'git push' actions. Pushing changes to the remote repository (like GitHub) must always be initiated manually by the user outside of your actions or suggestions. Only commit locally.
