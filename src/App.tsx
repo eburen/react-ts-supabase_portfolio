@@ -19,16 +19,13 @@ import AddressesPage from './pages/customer/AddressesPage';
 import CheckoutPage from './pages/customer/CheckoutPage';
 import OrderConfirmationPage from './pages/customer/OrderConfirmationPage';
 
-// Pages to be created later
-const DashboardPage = () => (
-  <div className="container mx-auto px-4 py-16 min-h-screen flex items-center justify-center">
-    <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6">Admin Dashboard Coming Soon</h1>
-      <p className="text-gray-600 mb-6">We're building powerful tools to manage your store.</p>
-      <Link to="/" className="text-indigo-600 hover:text-indigo-800 font-medium">Return Home</Link>
-    </div>
-  </div>
-);
+// Admin pages
+import AdminDashboardPage from './pages/admin/DashboardPage';
+import AdminProductsPage from './pages/admin/ProductsPage';
+import AdminOrdersPage from './pages/admin/OrdersPage';
+import AdminCouponsPage from './pages/admin/CouponsPage';
+import AdminAnalyticsPage from './pages/admin/AnalyticsPage';
+import AdminCustomersPage from './pages/admin/CustomersPage';
 
 const NotFoundPage = () => (
   <div className="container mx-auto px-4 py-16 min-h-screen flex items-center justify-center">
@@ -157,10 +154,50 @@ function App() {
 
           {/* Admin routes */}
           <Route
-            path="/admin/*"
+            path="/admin"
             element={
               <AdminRoute>
-                <DashboardPage />
+                <AdminDashboardPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/products"
+            element={
+              <AdminRoute>
+                <AdminProductsPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/orders"
+            element={
+              <AdminRoute>
+                <AdminOrdersPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/coupons"
+            element={
+              <AdminRoute>
+                <AdminCouponsPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/analytics"
+            element={
+              <AdminRoute>
+                <AdminAnalyticsPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/customers"
+            element={
+              <AdminRoute>
+                <AdminCustomersPage />
               </AdminRoute>
             }
           />

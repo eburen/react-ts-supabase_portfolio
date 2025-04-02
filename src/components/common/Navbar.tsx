@@ -34,6 +34,8 @@ export default function Navbar() {
         return location.pathname === path ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700';
     };
 
+    const isAdmin = user?.role === 'admin';
+
     return (
         <nav className={`fixed w-full z-50 transition-all duration-200 ${scrolled ? 'bg-white shadow-md py-2' : 'bg-white/90 py-3'}`}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -56,6 +58,14 @@ export default function Navbar() {
                             >
                                 Shop
                             </Link>
+                            {isAdmin && (
+                                <Link
+                                    to="/admin"
+                                    className={`${isActive('/admin')} inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium transition duration-150`}
+                                >
+                                    Admin Dashboard
+                                </Link>
+                            )}
                         </div>
                     </div>
 
@@ -169,6 +179,14 @@ export default function Navbar() {
                     >
                         Shop
                     </Link>
+                    {isAdmin && (
+                        <Link
+                            to="/admin"
+                            className={`${location.pathname.startsWith('/admin') ? 'bg-indigo-50 border-indigo-500 text-indigo-600' : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800'} block pl-3 pr-4 py-2 border-l-4 text-base font-medium`}
+                        >
+                            Admin Dashboard
+                        </Link>
+                    )}
                 </div>
 
                 <div className="pt-4 pb-3 border-t border-gray-200 px-4">
