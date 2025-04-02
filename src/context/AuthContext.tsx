@@ -10,6 +10,7 @@ interface AuthContextType {
     signIn: (email: string, password: string) => Promise<{ error: any }>;
     signUp: (email: string, password: string, userData: Partial<User>) => Promise<{ error: any, user: User | null }>;
     signOut: () => Promise<void>;
+    updateUserProfile: (userData: Partial<User>) => Promise<{ error: any, user: User | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,19 +50,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     async function fetchUserProfile(supabaseUser: SupabaseUser) {
-        const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', supabaseUser.id)
-            .single();
+        try {
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', supabaseUser.id)
+                .maybeSingle();
 
-        if (error) {
-            console.error('Error fetching user profile:', error);
-            return;
-        }
+            if (error) {
+                console.error('Error fetching user profile:', error);
+                return;
+            }
 
-        if (data) {
-            setUser(data as User);
+            if (data) {
+                setUser(data as User);
+            }
+        } catch (error) {
+            console.error('Exception fetching user profile:', error);
         }
     }
 
@@ -94,17 +99,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         role: 'customer',
                     }
                 ])
-                .select()
-                .single();
+                .select();
 
             if (profileError) {
                 return { error: profileError, user: null };
             }
 
-            return { error: null, user: profileData as User };
+            if (profileData && profileData.length > 0) {
+                return { error: null, user: profileData[0] as User };
+            }
         }
 
         return { error, user: null };
+    };
+
+    const updateUserProfile = async (userData: Partial<User>) => {
+        if (!user) return { error: new Error('No user is logged in'), user: null };
+
+        // Clean up userData to ensure proper handling of null/empty values
+        const cleanedUserData: Record<string, any> = {};
+
+        // Process each property to handle empty strings properly
+        Object.entries(userData).forEach(([key, value]) => {
+            // Convert empty strings to null, but keep actual string values
+            if (value === '') {
+                cleanedUserData[key] = null;
+            } else {
+                cleanedUserData[key] = value;
+            }
+        });
+
+        try {
+            // Update user in the database
+            const { data, error } = await supabase
+                .from('users')
+                .update(cleanedUserData)
+                .eq('id', user.id)
+                .select();
+
+            if (error) {
+                console.error('Error updating profile:', error);
+                return { error, user: null };
+            }
+
+            // If update was successful but no rows returned, fetch the profile again
+            if (!data || data.length === 0) {
+                await fetchUserProfile({ id: user.id } as SupabaseUser);
+                return { error: null, user };
+            }
+
+            // If data was returned, update state with the new user data
+            const updatedUser = data[0] as User;
+            setUser(updatedUser);
+            return { error: null, user: updatedUser };
+        } catch (err) {
+            console.error('Exception in updateUserProfile:', err);
+            return { error: err, user: null };
+        }
     };
 
     const signOut = async () => {
@@ -118,7 +169,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         signIn,
         signUp,
-        signOut
+        signOut,
+        updateUserProfile
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

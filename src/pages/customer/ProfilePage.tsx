@@ -2,13 +2,16 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { ShippingAddress } from '../../types';
+import { ShippingAddress, Gender } from '../../types';
 
 const ProfilePage = () => {
-    const { user, signOut } = useAuth();
+    const { user, signOut, updateUserProfile } = useAuth();
     const navigate = useNavigate();
 
     const [fullName, setFullName] = useState(user?.full_name || '');
+    const [birthday, setBirthday] = useState(user?.birthday || '');
+    const [gender, setGender] = useState<Gender | ''>(user?.gender || '');
+    const [phoneNumber, setPhoneNumber] = useState(user?.phone_number || '');
     const [addresses, setAddresses] = useState<ShippingAddress[]>([]);
     const [orders, setOrders] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -25,6 +28,12 @@ const ProfilePage = () => {
             navigate('/login');
             return;
         }
+
+        // Update local state when user changes
+        setFullName(user.full_name || '');
+        setBirthday(user.birthday || '');
+        setGender(user.gender || '');
+        setPhoneNumber(user.phone_number || '');
 
         const fetchUserData = async () => {
             setLoading(true);
@@ -68,17 +77,35 @@ const ProfilePage = () => {
         setUpdateLoading(true);
 
         try {
-            const { error } = await supabase
-                .from('users')
-                .update({ full_name: fullName })
-                .eq('id', user?.id);
+            const userData = {
+                full_name: fullName.trim() || null,
+                birthday: birthday || null,
+                gender: gender || null,
+                phone_number: phoneNumber.trim() || null
+            };
 
-            if (error) throw error;
+            console.log('Updating profile with data:', userData);
 
+            const { error: updateError, user: updatedUser } = await updateUserProfile(userData);
+
+            if (updateError) {
+                console.error('Profile update error:', updateError);
+                throw updateError;
+            }
+
+            console.log('Profile updated successfully:', updatedUser);
             setSuccess('Profile updated successfully');
-        } catch (error) {
+
+            // Update local state with the returned user data
+            if (updatedUser) {
+                setFullName(updatedUser.full_name || '');
+                setBirthday(updatedUser.birthday || '');
+                setGender(updatedUser.gender || '');
+                setPhoneNumber(updatedUser.phone_number || '');
+            }
+        } catch (error: any) {
             console.error('Error updating profile:', error);
-            setError('Failed to update profile');
+            setError(error.message || 'Failed to update profile');
         } finally {
             setUpdateLoading(false);
         }
@@ -251,6 +278,60 @@ const ProfilePage = () => {
                                                 onChange={(e) => setFullName(e.target.value)}
                                                 className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                                             />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="phone-number" className="block text-sm font-medium text-gray-700">
+                                            Phone number
+                                        </label>
+                                        <div className="mt-1">
+                                            <input
+                                                id="phone-number"
+                                                name="phone-number"
+                                                type="tel"
+                                                autoComplete="tel"
+                                                value={phoneNumber}
+                                                onChange={(e) => setPhoneNumber(e.target.value)}
+                                                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="birthday" className="block text-sm font-medium text-gray-700">
+                                            Birthday
+                                        </label>
+                                        <div className="mt-1">
+                                            <input
+                                                id="birthday"
+                                                name="birthday"
+                                                type="date"
+                                                value={birthday}
+                                                onChange={(e) => setBirthday(e.target.value)}
+                                                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="gender" className="block text-sm font-medium text-gray-700">
+                                            Gender
+                                        </label>
+                                        <div className="mt-1">
+                                            <select
+                                                id="gender"
+                                                name="gender"
+                                                value={gender}
+                                                onChange={(e) => setGender(e.target.value as Gender)}
+                                                className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                            >
+                                                <option value="">Select gender</option>
+                                                <option value="male">Male</option>
+                                                <option value="female">Female</option>
+                                                <option value="other">Other</option>
+                                                <option value="prefer_not_to_say">Prefer not to say</option>
+                                            </select>
                                         </div>
                                     </div>
 

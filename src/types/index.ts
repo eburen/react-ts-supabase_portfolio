@@ -1,5 +1,6 @@
 // User Types
 export type UserRole = 'admin' | 'customer';
+export type Gender = 'male' | 'female' | 'other' | 'prefer_not_to_say';
 
 export interface User {
     id: string;
@@ -7,6 +8,9 @@ export interface User {
     full_name?: string;
     role: UserRole;
     created_at: string;
+    birthday?: string;
+    gender?: Gender;
+    phone_number?: string;
 }
 
 // Product Types
