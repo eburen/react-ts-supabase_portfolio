@@ -22,7 +22,10 @@ import OrderConfirmationPage from './pages/customer/OrderConfirmationPage';
 // Admin pages
 import AdminDashboardPage from './pages/admin/DashboardPage';
 import AdminProductsPage from './pages/admin/ProductsPage';
+import AdminProductDetailPage from './pages/admin/ProductDetailPage';
+import AdminProductFormPage from './pages/admin/ProductFormPage';
 import AdminOrdersPage from './pages/admin/OrdersPage';
+import AdminOrderDetailPage from './pages/admin/OrderDetailPage';
 import AdminCouponsPage from './pages/admin/CouponsPage';
 import AdminAnalyticsPage from './pages/admin/AnalyticsPage';
 import AdminCustomersPage from './pages/admin/CustomersPage';
@@ -170,10 +173,42 @@ function App() {
             }
           />
           <Route
+            path="/admin/products/new"
+            element={
+              <AdminRoute>
+                <AdminProductFormPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/products/edit/:id"
+            element={
+              <AdminRoute>
+                <AdminProductFormPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/products/:id"
+            element={
+              <AdminRoute>
+                <AdminProductDetailPage />
+              </AdminRoute>
+            }
+          />
+          <Route
             path="/admin/orders"
             element={
               <AdminRoute>
                 <AdminOrdersPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/orders/:id"
+            element={
+              <AdminRoute>
+                <AdminOrderDetailPage />
               </AdminRoute>
             }
           />

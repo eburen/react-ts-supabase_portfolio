@@ -23,6 +23,18 @@ export interface ProductVariation {
     name: string;
     price_adjustment: number;
     stock: number;
+    sale?: Sale;
+}
+
+export interface Sale {
+    id: string;
+    product_id: string;
+    variation_id?: string | null;
+    discount_percentage: number;
+    start_date: string;
+    end_date: string;
+    active: boolean;
+    created_at?: string;
 }
 
 export interface Product {
@@ -36,6 +48,7 @@ export interface Product {
     updated_at: string;
     variations?: ProductVariation[];
     average_rating?: number;
+    sale?: Sale;
 }
 
 // Order Types
