@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { CreditCardIcon, TruckIcon, GiftIcon, CalendarIcon } from '@heroicons/react/24/outline';
 import { ShippingAddress, CardDetails, PaymentMethod, CheckoutCartItem } from '../../types/checkout';
+import CouponApplier from '../../components/checkout/CouponApplier';
 import '../../styles/Checkout.css';
 
 const CheckoutPage = () => {
@@ -28,6 +29,8 @@ const CheckoutPage = () => {
     const [giftNote, setGiftNote] = useState('');
     const [specialInstructions, setSpecialInstructions] = useState('');
     const [expressShipping, setExpressShipping] = useState(false);
+    const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null);
+    const [couponDiscount, setCouponDiscount] = useState<number>(0);
 
     // State for UI
     const [loading, setLoading] = useState(true);
@@ -96,7 +99,7 @@ const CheckoutPage = () => {
     // Calculate total
     const getTotal = () => {
         if (!cart || cart.length === 0) return 0;
-        return getSubtotal() + calculateShippingFee() + getGiftWrappingFee();
+        return getSubtotal() + calculateShippingFee() + getGiftWrappingFee() - couponDiscount;
     };
 
     useEffect(() => {
@@ -257,6 +260,16 @@ const CheckoutPage = () => {
         return true;
     };
 
+    const handleCouponApplied = (discount: number, code: string) => {
+        setCouponDiscount(discount);
+        setAppliedCouponCode(code);
+    };
+
+    const handleCouponRemoved = () => {
+        setCouponDiscount(0);
+        setAppliedCouponCode(null);
+    };
+
     const handleSubmitOrder = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
@@ -295,7 +308,9 @@ const CheckoutPage = () => {
                     special_instructions: specialInstructions,
                     express_shipping: expressShipping,
                     shipping_fee: calculateShippingFee(),
-                    gift_wrapping_fee: getGiftWrappingFee()
+                    gift_wrapping_fee: getGiftWrappingFee(),
+                    coupon_code: appliedCouponCode,
+                    coupon_discount: couponDiscount
                 })
                 .select();
 
@@ -724,6 +739,14 @@ const CheckoutPage = () => {
                                         ))}
                                     </div>
 
+                                    <CouponApplier
+                                        subTotal={getSubtotal()}
+                                        onApplied={handleCouponApplied}
+                                        onRemove={handleCouponRemoved}
+                                        appliedCouponCode={appliedCouponCode || undefined}
+                                        appliedDiscount={couponDiscount}
+                                    />
+
                                     <div className="checkout-order-totals">
                                         <div className="checkout-order-subtotal">
                                             <span>Subtotal</span>
@@ -739,6 +762,13 @@ const CheckoutPage = () => {
                                             <div className="checkout-order-gift-wrapping">
                                                 <span>Gift Wrapping</span>
                                                 <span>${getGiftWrappingFee().toFixed(2)}</span>
+                                            </div>
+                                        )}
+
+                                        {couponDiscount > 0 && (
+                                            <div className="checkout-order-discount">
+                                                <span>Discount</span>
+                                                <span>-${couponDiscount.toFixed(2)}</span>
                                             </div>
                                         )}
 

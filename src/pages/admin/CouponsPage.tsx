@@ -1,20 +1,34 @@
 import { useState, useEffect } from 'react';
 import AdminLayout from '../../components/admin/AdminLayout';
-import { supabase } from '../../lib/supabase';
 import { Coupon } from '../../types';
 import {
     PencilIcon,
     TrashIcon,
     PlusIcon,
     CheckCircleIcon,
-    XCircleIcon
+    XCircleIcon,
+    ExclamationCircleIcon,
+    ShieldCheckIcon
 } from '@heroicons/react/24/outline';
+import {
+    fetchCoupons,
+    createCoupon,
+    updateCoupon,
+    deleteCoupon,
+    toggleCouponStatus
+} from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
+import { checkIsAdmin } from '../../lib/supabase';
 
 const CouponsPage = () => {
     const [coupons, setCoupons] = useState<Coupon[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [submitting, setSubmitting] = useState(false);
+    const [isAdmin, setIsAdmin] = useState(false);
+    const { user } = useAuth();
 
     // Form state
     const [formData, setFormData] = useState({
@@ -26,30 +40,40 @@ const CouponsPage = () => {
         is_active: true
     });
 
+    // Check admin status on component mount
     useEffect(() => {
-        fetchCoupons();
-    }, []);
+        const verifyAdminStatus = async () => {
+            const adminStatus = await checkIsAdmin();
+            setIsAdmin(adminStatus);
 
-    const fetchCoupons = async () => {
-        try {
-            setLoading(true);
-            const { data, error } = await supabase
-                .from('coupons')
-                .select('*')
-                .order('created_at', { ascending: false });
-
-            if (error) {
-                throw error;
+            if (!adminStatus) {
+                setError('You do not have permission to manage coupons. Admin role is required.');
+            } else {
+                loadCoupons();
             }
+        };
 
-            if (data) {
-                setCoupons(data as Coupon[]);
-            }
-        } catch (error) {
-            console.error('Error fetching coupons:', error);
-        } finally {
+        if (user) {
+            verifyAdminStatus();
+        } else {
+            setError('You must be logged in with admin privileges to manage coupons.');
             setLoading(false);
         }
+    }, [user]);
+
+    const loadCoupons = async () => {
+        setLoading(true);
+        setError(null);
+
+        const { data, error } = await fetchCoupons();
+
+        if (error) {
+            setError('Failed to load coupons: ' + error);
+        } else if (data) {
+            setCoupons(data as Coupon[]);
+        }
+
+        setLoading(false);
     };
 
     const resetForm = () => {
@@ -62,6 +86,7 @@ const CouponsPage = () => {
             is_active: true
         });
         setEditingCoupon(null);
+        setError(null);
     };
 
     const openEditForm = (coupon: Coupon) => {
@@ -75,6 +100,7 @@ const CouponsPage = () => {
             is_active: coupon.is_active
         });
         setShowForm(true);
+        setError(null);
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -94,13 +120,50 @@ const CouponsPage = () => {
         }
     };
 
+    const validateForm = () => {
+        if (!formData.code.trim()) {
+            setError('Coupon code is required');
+            return false;
+        }
+
+        const discountValue = parseFloat(formData.discount_value);
+        if (isNaN(discountValue) || discountValue <= 0) {
+            setError('Discount value must be greater than 0');
+            return false;
+        }
+
+        if (formData.discount_type === 'percentage' && discountValue > 100) {
+            setError('Percentage discount cannot exceed 100%');
+            return false;
+        }
+
+        if (formData.minimum_purchase && (isNaN(parseFloat(formData.minimum_purchase)) || parseFloat(formData.minimum_purchase) < 0)) {
+            setError('Minimum purchase must be a positive number or empty');
+            return false;
+        }
+
+        return true;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        if (!validateForm()) {
+            return;
+        }
+
+        if (!isAdmin) {
+            setError('You do not have permission to manage coupons. Admin role is required.');
+            return;
+        }
+
+        setSubmitting(true);
+        setError(null);
+
         try {
             const couponData = {
-                code: formData.code,
-                discount_type: formData.discount_type,
+                code: formData.code.toUpperCase().trim(),
+                discount_type: formData.discount_type as 'percentage' | 'fixed',
                 discount_value: parseFloat(formData.discount_value),
                 minimum_purchase: formData.minimum_purchase ? parseFloat(formData.minimum_purchase) : null,
                 expiry_date: formData.expiry_date || null,
@@ -109,27 +172,23 @@ const CouponsPage = () => {
 
             if (editingCoupon) {
                 // Update existing coupon
-                const { error } = await supabase
-                    .from('coupons')
-                    .update(couponData)
-                    .eq('id', editingCoupon.id);
+                const { data, error } = await updateCoupon(editingCoupon.id, couponData);
 
-                if (error) throw error;
+                if (error) throw new Error(error);
 
-                // Update state
-                setCoupons(coupons.map(c =>
-                    c.id === editingCoupon.id ? { ...c, ...couponData } : c
-                ));
+                // Update state with returned data
+                if (data && data.length > 0) {
+                    setCoupons(coupons.map(c =>
+                        c.id === editingCoupon.id ? data[0] as Coupon : c
+                    ));
+                }
             } else {
                 // Create new coupon
-                const { data, error } = await supabase
-                    .from('coupons')
-                    .insert([couponData])
-                    .select();
+                const { data, error } = await createCoupon(couponData);
 
-                if (error) throw error;
+                if (error) throw new Error(error);
 
-                if (data) {
+                if (data && data.length > 0) {
                     setCoupons([data[0] as Coupon, ...coupons]);
                 }
             }
@@ -137,49 +196,80 @@ const CouponsPage = () => {
             // Reset form and close
             resetForm();
             setShowForm(false);
-        } catch (error) {
-            console.error('Error saving coupon:', error);
-            alert('Failed to save coupon. Please try again.');
+        } catch (error: unknown) {
+            const err = error as Error;
+            let errorMessage = err.message || 'Failed to save coupon. Please try again.';
+
+            // Check for RLS policy violation
+            if (errorMessage.includes('violates row-level security policy')) {
+                errorMessage = 'Permission denied: You need admin privileges to manage coupons.';
+            }
+
+            setError(errorMessage);
+        } finally {
+            setSubmitting(false);
         }
     };
 
     const handleDeleteCoupon = async (id: string) => {
+        if (!isAdmin) {
+            setError('You do not have permission to delete coupons. Admin role is required.');
+            return;
+        }
+
         if (window.confirm('Are you sure you want to delete this coupon?')) {
             try {
-                const { error } = await supabase
-                    .from('coupons')
-                    .delete()
-                    .eq('id', id);
+                setError(null);
+                const { error } = await deleteCoupon(id);
 
-                if (error) throw error;
+                if (error) throw new Error(error);
 
                 // Remove from state
                 setCoupons(coupons.filter(c => c.id !== id));
-            } catch (error) {
-                console.error('Error deleting coupon:', error);
-                alert('Failed to delete coupon. Please try again.');
+            } catch (error: unknown) {
+                const err = error as Error;
+                let errorMessage = err.message || 'Failed to delete coupon';
+
+                // Check for RLS policy violation
+                if (errorMessage.includes('violates row-level security policy')) {
+                    errorMessage = 'Permission denied: You need admin privileges to delete coupons.';
+                }
+
+                setError(errorMessage);
             }
         }
     };
 
-    const toggleCouponStatus = async (coupon: Coupon) => {
+    const handleToggleCouponStatus = async (coupon: Coupon) => {
+        if (!isAdmin) {
+            setError('You do not have permission to update coupon status. Admin role is required.');
+            return;
+        }
+
         try {
+            setError(null);
             const newStatus = !coupon.is_active;
 
-            const { error } = await supabase
-                .from('coupons')
-                .update({ is_active: newStatus })
-                .eq('id', coupon.id);
+            const { data, error } = await toggleCouponStatus(coupon.id, newStatus);
 
-            if (error) throw error;
+            if (error) throw new Error(error);
 
-            // Update state
-            setCoupons(coupons.map(c =>
-                c.id === coupon.id ? { ...c, is_active: newStatus } : c
-            ));
-        } catch (error) {
-            console.error('Error updating coupon status:', error);
-            alert('Failed to update coupon status. Please try again.');
+            // Update state with returned data to ensure we have the latest
+            if (data && data.length > 0) {
+                setCoupons(coupons.map(c =>
+                    c.id === coupon.id ? data[0] as Coupon : c
+                ));
+            }
+        } catch (error: unknown) {
+            const err = error as Error;
+            let errorMessage = err.message || 'Failed to update coupon status';
+
+            // Check for RLS policy violation
+            if (errorMessage.includes('violates row-level security policy')) {
+                errorMessage = 'Permission denied: You need admin privileges to update coupon status.';
+            }
+
+            setError(errorMessage);
         }
     };
 
@@ -187,6 +277,33 @@ const CouponsPage = () => {
         if (!dateString) return 'No expiry';
         return new Date(dateString).toLocaleDateString();
     };
+
+    if (!user) {
+        return (
+            <AdminLayout>
+                <div className="px-4 sm:px-6 lg:px-8">
+                    <div className="sm:flex sm:items-center">
+                        <div className="sm:flex-auto">
+                            <h1 className="text-2xl font-semibold text-gray-900">Coupons</h1>
+                        </div>
+                    </div>
+                    <div className="mt-6 rounded-md bg-yellow-50 p-4">
+                        <div className="flex items-start">
+                            <div className="flex-shrink-0">
+                                <ExclamationCircleIcon className="h-5 w-5 text-yellow-400" aria-hidden="true" />
+                            </div>
+                            <div className="ml-3">
+                                <h3 className="text-sm font-medium text-yellow-800">Authentication Required</h3>
+                                <div className="mt-2 text-sm text-yellow-700">
+                                    <p>You must be logged in with admin privileges to manage coupons.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </AdminLayout>
+        );
+    }
 
     return (
         <AdminLayout>
@@ -198,23 +315,50 @@ const CouponsPage = () => {
                             Manage discount coupons for your store.
                         </p>
                     </div>
-                    <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                resetForm();
-                                setShowForm(!showForm);
-                            }}
-                            className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
-                        >
-                            <PlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
-                            Add Coupon
-                        </button>
-                    </div>
+                    {isAdmin && (
+                        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    resetForm();
+                                    setShowForm(!showForm);
+                                }}
+                                className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
+                            >
+                                <PlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+                                Add Coupon
+                            </button>
+                        </div>
+                    )}
+                    {isAdmin && (
+                        <div className="mt-4 sm:mt-0 sm:ml-4 sm:flex-none">
+                            <div className="inline-flex items-center justify-center rounded-md border border-green-100 bg-green-50 px-3 py-1 text-sm text-green-800">
+                                <ShieldCheckIcon className="mr-1 h-4 w-4 text-green-600" />
+                                Admin Access
+                            </div>
+                        </div>
+                    )}
                 </div>
 
+                {/* Error display */}
+                {error && (
+                    <div className="mt-4 rounded-md bg-red-50 p-4">
+                        <div className="flex items-start">
+                            <div className="flex-shrink-0">
+                                <ExclamationCircleIcon className="h-5 w-5 text-red-400" aria-hidden="true" />
+                            </div>
+                            <div className="ml-3">
+                                <h3 className="text-sm font-medium text-red-800">Error</h3>
+                                <div className="mt-2 text-sm text-red-700">
+                                    <p>{error}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Coupon Form */}
-                {showForm && (
+                {showForm && isAdmin && (
                     <div className="mt-8 bg-white overflow-hidden shadow sm:rounded-lg">
                         <div className="px-4 py-5 sm:p-6">
                             <h3 className="text-lg font-medium leading-6 text-gray-900">
@@ -235,9 +379,14 @@ const CouponsPage = () => {
                                                 required
                                                 value={formData.code}
                                                 onChange={handleInputChange}
-                                                className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                                className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md uppercase"
+                                                placeholder="e.g., SUMMER10"
+                                                disabled={submitting || (!!editingCoupon)}
                                             />
                                         </div>
+                                        {!!editingCoupon && (
+                                            <p className="mt-1 text-xs text-gray-500">Coupon code cannot be changed</p>
+                                        )}
                                     </div>
 
                                     {/* Discount Type */}
@@ -252,6 +401,7 @@ const CouponsPage = () => {
                                                 value={formData.discount_type}
                                                 onChange={handleInputChange}
                                                 className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                                disabled={submitting}
                                             >
                                                 <option value="percentage">Percentage</option>
                                                 <option value="fixed">Fixed Amount</option>
@@ -276,6 +426,7 @@ const CouponsPage = () => {
                                                 value={formData.discount_value}
                                                 onChange={handleInputChange}
                                                 className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                                disabled={submitting}
                                             />
                                         </div>
                                     </div>
@@ -296,6 +447,7 @@ const CouponsPage = () => {
                                                 onChange={handleInputChange}
                                                 className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
                                                 placeholder="Optional"
+                                                disabled={submitting}
                                             />
                                         </div>
                                     </div>
@@ -313,8 +465,10 @@ const CouponsPage = () => {
                                                 value={formData.expiry_date}
                                                 onChange={handleInputChange}
                                                 className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                                disabled={submitting}
                                             />
                                         </div>
+                                        <p className="mt-1 text-xs text-gray-500">Leave blank for no expiry</p>
                                     </div>
 
                                     {/* Is Active */}
@@ -328,6 +482,7 @@ const CouponsPage = () => {
                                                     checked={formData.is_active}
                                                     onChange={handleInputChange}
                                                     className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                                                    disabled={submitting}
                                                 />
                                             </div>
                                             <div className="ml-3 text-sm">
@@ -348,14 +503,26 @@ const CouponsPage = () => {
                                             setShowForm(false);
                                         }}
                                         className="px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                        disabled={submitting}
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
-                                        className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                        className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        disabled={submitting}
                                     >
-                                        {editingCoupon ? 'Update' : 'Create'}
+                                        {submitting ? (
+                                            <>
+                                                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                Saving...
+                                            </>
+                                        ) : (
+                                            editingCoupon ? 'Update' : 'Create'
+                                        )}
                                     </button>
                                 </div>
                             </form>
@@ -397,70 +564,78 @@ const CouponsPage = () => {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-200 bg-white">
-                                                {coupons.map((coupon) => (
-                                                    <tr key={coupon.id}>
-                                                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
-                                                            {coupon.code}
-                                                        </td>
-                                                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                                            {coupon.discount_type === 'percentage'
-                                                                ? `${coupon.discount_value}%`
-                                                                : `$${coupon.discount_value.toFixed(2)}`}
-                                                        </td>
-                                                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                                            {coupon.minimum_purchase
-                                                                ? `$${coupon.minimum_purchase.toFixed(2)}`
-                                                                : 'None'}
-                                                        </td>
-                                                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                                            {formatDate(coupon.expiry_date)}
-                                                        </td>
-                                                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                                            <button
-                                                                onClick={() => toggleCouponStatus(coupon)}
-                                                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${coupon.is_active
+                                                {coupons.map((coupon) => {
+                                                    const isExpired = coupon.expiry_date && new Date(coupon.expiry_date) < new Date();
+                                                    return (
+                                                        <tr key={coupon.id}>
+                                                            <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-bold text-gray-900 sm:pl-6">
+                                                                {coupon.code}
+                                                            </td>
+                                                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                                                {coupon.discount_type === 'percentage'
+                                                                    ? `${coupon.discount_value}%`
+                                                                    : `$${coupon.discount_value.toFixed(2)}`}
+                                                            </td>
+                                                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                                                {coupon.minimum_purchase
+                                                                    ? `$${coupon.minimum_purchase.toFixed(2)}`
+                                                                    : 'None'}
+                                                            </td>
+                                                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                                                <span className={isExpired ? 'text-red-600 font-medium' : ''}>
+                                                                    {formatDate(coupon.expiry_date)}
+                                                                </span>
+                                                            </td>
+                                                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                                                <button
+                                                                    onClick={() => handleToggleCouponStatus(coupon)}
+                                                                    disabled={!isAdmin}
+                                                                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${coupon.is_active && !isExpired
                                                                         ? 'bg-green-100 text-green-800'
                                                                         : 'bg-red-100 text-red-800'
-                                                                    }`}
-                                                            >
-                                                                {coupon.is_active ? (
-                                                                    <>
-                                                                        <CheckCircleIcon className="mr-1.5 h-4 w-4" />
-                                                                        Active
-                                                                    </>
-                                                                ) : (
-                                                                    <>
-                                                                        <XCircleIcon className="mr-1.5 h-4 w-4" />
-                                                                        Inactive
-                                                                    </>
+                                                                        } ${!isAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                >
+                                                                    {coupon.is_active && !isExpired ? (
+                                                                        <>
+                                                                            <CheckCircleIcon className="mr-1.5 h-4 w-4" />
+                                                                            Active
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <XCircleIcon className="mr-1.5 h-4 w-4" />
+                                                                            {isExpired ? 'Expired' : 'Inactive'}
+                                                                        </>
+                                                                    )}
+                                                                </button>
+                                                            </td>
+                                                            <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                                                                {isAdmin && (
+                                                                    <div className="flex justify-end space-x-3">
+                                                                        <button
+                                                                            onClick={() => openEditForm(coupon)}
+                                                                            className="text-indigo-600 hover:text-indigo-900"
+                                                                        >
+                                                                            <PencilIcon className="h-5 w-5" />
+                                                                            <span className="sr-only">Edit</span>
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => handleDeleteCoupon(coupon.id)}
+                                                                            className="text-red-600 hover:text-red-900"
+                                                                        >
+                                                                            <TrashIcon className="h-5 w-5" />
+                                                                            <span className="sr-only">Delete</span>
+                                                                        </button>
+                                                                    </div>
                                                                 )}
-                                                            </button>
-                                                        </td>
-                                                        <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                                                            <div className="flex justify-end space-x-3">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => openEditForm(coupon)}
-                                                                    className="text-indigo-600 hover:text-indigo-900"
-                                                                >
-                                                                    <PencilIcon className="h-5 w-5" aria-hidden="true" />
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleDeleteCoupon(coupon.id)}
-                                                                    className="text-red-600 hover:text-red-900"
-                                                                >
-                                                                    <TrashIcon className="h-5 w-5" aria-hidden="true" />
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
                                             </tbody>
                                         </table>
                                     ) : (
                                         <div className="py-10 text-center">
-                                            <p className="text-gray-500">No coupons found</p>
+                                            <p className="text-gray-500">No coupons found. Create one to get started.</p>
                                         </div>
                                     )}
                                 </div>
