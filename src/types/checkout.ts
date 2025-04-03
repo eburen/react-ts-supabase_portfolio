@@ -8,6 +8,7 @@ export interface CheckoutCartItem {
     quantity: number;
     name: string;
     price: number;
+    original_price?: number; // Original price before any discounts
     image: string;
     variation_name?: string | null;
 }

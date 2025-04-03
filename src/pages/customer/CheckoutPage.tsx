@@ -730,7 +730,23 @@ const CheckoutPage = () => {
                                                         {item.name}
                                                         {item.variation_name && <span className="text-sm text-gray-500"> ({item.variation_name})</span>}
                                                     </h3>
-                                                    <p className="checkout-order-item-price">${item.price.toFixed(2)}</p>
+
+                                                    {/* Product price with sale information */}
+                                                    {item.original_price && item.original_price > item.price ? (
+                                                        <div className="flex items-center">
+                                                            <span className="text-red-600 font-medium">
+                                                                ${item.price.toFixed(2)}
+                                                            </span>
+                                                            <span className="ml-2 text-gray-500 line-through text-sm">
+                                                                ${item.original_price.toFixed(2)}
+                                                            </span>
+                                                            <span className="ml-2 bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded">
+                                                                SALE
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <p className="checkout-order-item-price">${item.price.toFixed(2)}</p>
+                                                    )}
                                                 </div>
                                                 <div className="checkout-order-item-total">
                                                     ${(item.price * item.quantity).toFixed(2)}

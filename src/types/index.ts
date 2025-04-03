@@ -83,8 +83,10 @@ export interface Review {
     id: string;
     product_id: string;
     user_id: string;
+    username?: string;
     rating: number;
     text: string;
+    comment?: string;
     created_at: string;
 }
 

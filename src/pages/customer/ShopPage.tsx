@@ -23,8 +23,10 @@ const ShopPage = () => {
             try {
                 setLoading(true);
 
-                // Start building the query
-                let query = supabase.from('products').select('*');
+                // Start building the query for products
+                let query = supabase
+                    .from('products')
+                    .select('*');
 
                 // Apply category filter if present
                 if (categoryFilter) {
@@ -61,8 +63,29 @@ const ShopPage = () => {
                 }
 
                 if (data) {
+                    // Fetch active sales
+                    const { data: salesData } = await supabase
+                        .from('product_sales')
+                        .select('*')
+                        .is('variation_id', null)
+                        .eq('active', true)
+                        .gte('end_date', new Date().toISOString().split('T')[0])
+                        .lte('start_date', new Date().toISOString().split('T')[0]);
+
+                    const activeSales = salesData || [];
+
+                    // Process products to attach sale information
+                    const processedData = data.map(product => {
+                        const processedProduct = { ...product } as Product;
+                        const matchingSale = activeSales.find(
+                            sale => sale.product_id === product.id
+                        );
+                        processedProduct.sale = matchingSale || undefined;
+                        return processedProduct;
+                    });
+
                     // Filter by price client-side
-                    const filteredData = data.filter(
+                    const filteredData = processedData.filter(
                         product => product.base_price >= minPrice && product.base_price <= maxPrice
                     );
                     setProducts(filteredData);

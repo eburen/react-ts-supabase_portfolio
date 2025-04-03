@@ -51,7 +51,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 return;
             }
 
-            // Transform the data to include product details
+            if (!data || data.length === 0) {
+                setCartItems([]);
+                return;
+            }
+
+            // Fetch active sales for all products in the cart
+            const today = new Date().toISOString().split('T')[0];
+            const productIds = data.map(item => item.product_id);
+
+            const { data: salesData } = await supabase
+                .from('product_sales')
+                .select('*')
+                .in('product_id', productIds)
+                .eq('active', true)
+                .lte('start_date', today)
+                .gte('end_date', today);
+
+            const activeSales = salesData || [];
+
+            // Transform the data to include product details and apply sales
             const cartItemsWithDetails = data.map((item: {
                 id: string;
                 product_id: string;
@@ -68,17 +87,37 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     name: string;
                     price_adjustment: number;
                 };
-            }) => ({
-                id: item.id,
-                product_id: item.product_id,
-                variation_id: item.variation_id,
-                quantity: item.quantity,
-                // Add product details
-                name: item.product?.name || 'Product',
-                price: item.product?.base_price || 0,
-                image: item.product?.images?.[0] || '/images/placeholder.jpg',
-                variation_name: item.variation?.name || null
-            }));
+            }) => {
+                // Calculate base price (product base + variation adjustment)
+                const basePrice = (item.product?.base_price || 0) +
+                    (item.variation?.price_adjustment || 0);
+
+                // Find applicable sale
+                const sale = activeSales.find(s =>
+                    s.product_id === item.product_id &&
+                    ((item.variation_id && s.variation_id === item.variation_id) ||
+                        (!item.variation_id && !s.variation_id))
+                );
+
+                // Apply discount if a sale exists
+                let finalPrice = basePrice;
+                if (sale && sale.discount_percentage) {
+                    finalPrice = basePrice * (1 - (sale.discount_percentage / 100));
+                }
+
+                return {
+                    id: item.id,
+                    product_id: item.product_id,
+                    variation_id: item.variation_id,
+                    quantity: item.quantity,
+                    // Add product details
+                    name: item.product?.name || 'Product',
+                    price: finalPrice, // Apply sale discount if applicable
+                    original_price: sale ? basePrice : undefined, // Store original price if on sale
+                    image: item.product?.images?.[0] || '/images/placeholder.jpg',
+                    variation_name: item.variation?.name || null
+                };
+            });
 
             setCartItems(cartItemsWithDetails);
         } catch (error) {
@@ -139,8 +178,33 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 }
             }
 
-            // Calculate the final price (base price + variation adjustment if any)
-            const finalPrice = productData.base_price + (variationData?.price_adjustment || 0);
+            // Fetch active sale for the product or variation
+            const today = new Date().toISOString().split('T')[0];
+
+            const saleQuery = supabase
+                .from('product_sales')
+                .select('*')
+                .eq('product_id', productId)
+                .eq('active', true)
+                .lte('start_date', today)
+                .gte('end_date', today);
+
+            if (variationId) {
+                saleQuery.eq('variation_id', variationId);
+            } else {
+                saleQuery.is('variation_id', null);
+            }
+
+            const { data: saleData } = await saleQuery.maybeSingle();
+
+            // Calculate the base price (base price + variation adjustment if any)
+            const basePrice = productData.base_price + (variationData?.price_adjustment || 0);
+
+            // Apply discount if there's an active sale
+            let finalPrice = basePrice;
+            if (saleData && saleData.discount_percentage) {
+                finalPrice = basePrice * (1 - (saleData.discount_percentage / 100));
+            }
 
             // Check if the same product (and variation if applicable) already exists in the cart
             const existingItemIndex = cartItems.findIndex(
@@ -168,11 +232,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     }
                 }
 
-                // Update local state
+                // Update local state with the new price (keeping the sale price if it exists)
                 const updatedCartItems = [...cartItems];
                 updatedCartItems[existingItemIndex] = {
                     ...existingItem,
-                    quantity: newQuantity
+                    quantity: newQuantity,
+                    price: finalPrice, // Update the price in case the sale has changed
+                    original_price: saleData ? basePrice : undefined // Store original price if on sale
                 };
 
                 setCartItems(updatedCartItems);
@@ -207,7 +273,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
                             quantity,
                             // Add product details
                             name: productData.name,
-                            price: finalPrice,
+                            price: finalPrice, // Use the sale price if applicable
+                            original_price: saleData ? basePrice : undefined, // Store original price if on sale
                             image: productData.images?.[0] || '/images/placeholder.jpg',
                             variation_name: variationData?.name || null
                         };
@@ -223,7 +290,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 const newItem: CartItemWithDetails = {
                     ...data,
                     name: productData.name,
-                    price: finalPrice,
+                    price: finalPrice, // Use the sale price if applicable
+                    original_price: saleData ? basePrice : undefined, // Store original price if on sale
                     image: productData.images?.[0] || '/images/placeholder.jpg',
                     variation_name: variationData?.name || null
                 };
@@ -238,7 +306,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     quantity,
                     // Add product details
                     name: productData.name,
-                    price: finalPrice,
+                    price: finalPrice, // Use the sale price if applicable
+                    original_price: saleData ? basePrice : undefined, // Store original price if on sale
                     image: productData.images?.[0] || '/images/placeholder.jpg',
                     variation_name: variationData?.name || null
                 };

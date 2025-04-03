@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Product } from '../../types';
 import { useCart } from '../../context/CartContext';
 import { useState } from 'react';
+import { TagIcon } from '@heroicons/react/24/solid';
 
 interface ProductCardProps {
     product: Product;
@@ -28,6 +29,16 @@ export default function ProductCard({ product }: ProductCardProps) {
         }
     };
 
+    // Calculate the discounted price if sale exists and is active
+    const hasActiveSale = product.sale &&
+        product.sale.active &&
+        new Date(product.sale.start_date) <= new Date() &&
+        new Date(product.sale.end_date) >= new Date();
+
+    const discountedPrice = hasActiveSale
+        ? product.base_price * (1 - (product.sale!.discount_percentage / 100))
+        : null;
+
     return (
         <div
             className="group bg-white rounded-xl shadow-sm overflow-hidden flex flex-col transition-all duration-200 hover:shadow-md"
@@ -51,6 +62,16 @@ export default function ProductCard({ product }: ProductCardProps) {
                         </div>
                     )}
                 </div>
+
+                {/* Sale badge */}
+                {hasActiveSale && (
+                    <div className="absolute top-2 left-2 z-10">
+                        <div className="bg-red-500 text-white px-2 py-1 rounded-full text-xs font-bold flex items-center">
+                            <TagIcon className="h-3 w-3 mr-1" />
+                            {product.sale!.discount_percentage}% OFF
+                        </div>
+                    </div>
+                )}
 
                 {/* Quick add to cart button that appears on hover */}
                 <div
@@ -87,9 +108,20 @@ export default function ProductCard({ product }: ProductCardProps) {
 
                 <div className="flex items-center justify-between">
                     <div>
-                        <p className="text-lg font-semibold text-gray-900">
-                            ${product.base_price.toFixed(2)}
-                        </p>
+                        {hasActiveSale ? (
+                            <div className="flex items-center">
+                                <p className="text-lg font-semibold text-red-600">
+                                    ${discountedPrice!.toFixed(2)}
+                                </p>
+                                <p className="text-sm text-gray-500 line-through ml-2">
+                                    ${product.base_price.toFixed(2)}
+                                </p>
+                            </div>
+                        ) : (
+                            <p className="text-lg font-semibold text-gray-900">
+                                ${product.base_price.toFixed(2)}
+                            </p>
+                        )}
                         {product.average_rating && (
                             <div className="flex items-center mt-1">
                                 <div className="flex items-center">
@@ -111,8 +143,8 @@ export default function ProductCard({ product }: ProductCardProps) {
                     <button
                         onClick={handleAddToCart}
                         className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${isAddingToCart
-                                ? 'bg-green-50 text-green-600 border border-green-200'
-                                : 'bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-600 hover:text-white'
+                            ? 'bg-green-50 text-green-600 border border-green-200'
+                            : 'bg-indigo-50 text-indigo-600 border border-indigo-100 hover:bg-indigo-600 hover:text-white'
                             }`}
                     >
                         {isAddingToCart ? 'Added' : 'Add to cart'}

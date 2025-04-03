@@ -150,7 +150,25 @@ const CartPage = () => {
                                                 {item.variation_name && (
                                                     <p className="mt-1 text-sm text-gray-500">Variation: {item.variation_name}</p>
                                                 )}
-                                                <p className="mt-1 text-sm text-gray-500">${(item.price || 0).toFixed(2)} each</p>
+
+                                                {/* Product price with sale information */}
+                                                <div className="mt-1 text-sm">
+                                                    {item.original_price && item.original_price > item.price ? (
+                                                        <div className="flex items-center">
+                                                            <span className="text-red-600 font-medium">
+                                                                ${(item.price || 0).toFixed(2)} each
+                                                            </span>
+                                                            <span className="ml-2 text-gray-500 line-through">
+                                                                ${(item.original_price || 0).toFixed(2)}
+                                                            </span>
+                                                            <span className="ml-2 bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded">
+                                                                SALE
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-gray-500">${(item.price || 0).toFixed(2)} each</p>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             <div className="flex-1 flex items-end justify-between text-sm">
