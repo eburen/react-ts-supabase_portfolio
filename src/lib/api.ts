@@ -12,7 +12,13 @@ export interface CouponData {
 }
 
 // Coupon functions
-export const verifyCoupon = async (code: string, orderTotal?: number): Promise<{ valid: boolean; message: string; discount?: number }> => {
+export const verifyCoupon = async (code: string, orderTotal?: number): Promise<{ 
+  valid: boolean; 
+  message: string; 
+  discount?: number;
+  discountType?: 'percentage' | 'fixed';
+  discountValue?: number;
+}> => {
   try {
     // Normalize the code
     const normalizedCode = code.trim().toUpperCase();
@@ -59,7 +65,9 @@ export const verifyCoupon = async (code: string, orderTotal?: number): Promise<{
     return { 
       valid: true, 
       message: 'Coupon applied successfully', 
-      discount: discountAmount 
+      discount: discountAmount,
+      discountType: data.discount_type,
+      discountValue: data.discount_value
     };
   } catch (error: unknown) {
     console.error('Error verifying coupon:', error);

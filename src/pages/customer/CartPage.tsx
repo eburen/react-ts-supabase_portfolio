@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
+import { verifyCoupon } from '../../lib/api';
 
 const CartPage = () => {
     const { cartItems, updateCartItemQuantity, removeFromCart, clearCart, cartTotal } = useCart();
@@ -39,29 +40,32 @@ const CartPage = () => {
         );
     }
 
-    const handleApplyCoupon = () => {
+    const handleApplyCoupon = async () => {
         if (!couponCode.trim()) {
             setCouponError('Please enter a coupon code');
             return;
         }
 
-        // For a real application, you would verify the coupon with Supabase
-        if (couponCode.toUpperCase() === 'WELCOME10') {
-            setAppliedCoupon({
-                code: 'WELCOME10',
-                discountType: 'percentage',
-                discountValue: 10
-            });
-            setCouponError(null);
-        } else if (couponCode.toUpperCase() === 'FREESHIP') {
-            setAppliedCoupon({
-                code: 'FREESHIP',
-                discountType: 'fixed',
-                discountValue: 10
-            });
-            setCouponError(null);
-        } else {
-            setCouponError('Invalid coupon code');
+        setCouponError(null);
+
+        try {
+            // Verify the coupon with the API
+            const result = await verifyCoupon(couponCode, cartTotal);
+
+            if (result.valid && result.discount) {
+                setAppliedCoupon({
+                    code: couponCode.toUpperCase(),
+                    discountType: result.discountType || 'percentage',
+                    discountValue: result.discountValue || result.discount
+                });
+                setCouponError(null);
+            } else {
+                setCouponError(result.message || 'Invalid coupon code');
+                setAppliedCoupon(null);
+            }
+        } catch (error) {
+            console.error('Error verifying coupon:', error);
+            setCouponError('Error verifying coupon. Please try again.');
             setAppliedCoupon(null);
         }
 
