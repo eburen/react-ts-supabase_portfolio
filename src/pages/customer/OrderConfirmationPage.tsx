@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { CheckCircleIcon, CalendarIcon, TruckIcon, CreditCardIcon, GiftIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, CalendarIcon, TruckIcon, CreditCardIcon, GiftIcon, TagIcon } from '@heroicons/react/24/outline';
 import { ShippingAddress, PaymentMethod, PaymentStatus } from '../../types/checkout';
 
 interface OrderItem {
@@ -34,6 +34,8 @@ interface Order {
     express_shipping: boolean;
     shipping_fee?: number;
     gift_wrapping_fee?: number;
+    coupon_code?: string;
+    coupon_discount?: number;
     created_at: string;
     updated_at: string;
     order_items: OrderItem[];
@@ -384,7 +386,7 @@ const OrderConfirmationPage = () => {
                             <div className="space-y-2">
                                 <div className="flex justify-between text-sm text-gray-500">
                                     <span>Subtotal</span>
-                                    <span>${(order.total - (order.shipping_fee || 0) - (order.gift_wrapping_fee || 0)).toFixed(2)}</span>
+                                    <span>${(order.total - (order.shipping_fee || 0) - (order.gift_wrapping_fee || 0) + (order.coupon_discount || 0)).toFixed(2)}</span>
                                 </div>
                                 {(order.shipping_fee || order.express_shipping) && (
                                     <div className="flex justify-between text-sm text-gray-500">
@@ -396,6 +398,15 @@ const OrderConfirmationPage = () => {
                                     <div className="flex justify-between text-sm text-gray-500">
                                         <span>Gift Wrapping</span>
                                         <span>${(order.gift_wrapping_fee || 0).toFixed(2)}</span>
+                                    </div>
+                                )}
+                                {order.coupon_code && order.coupon_discount && order.coupon_discount > 0 && (
+                                    <div className="flex justify-between text-sm text-green-600">
+                                        <span className="flex items-center">
+                                            <TagIcon className="h-4 w-4 mr-1" />
+                                            Coupon ({order.coupon_code})
+                                        </span>
+                                        <span>-${order.coupon_discount.toFixed(2)}</span>
                                     </div>
                                 )}
                                 <div className="flex justify-between pt-2 border-t border-gray-200 text-base font-medium text-gray-900">

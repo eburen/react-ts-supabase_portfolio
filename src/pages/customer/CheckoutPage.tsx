@@ -351,7 +351,7 @@ const CheckoutPage = () => {
 
             // Redirect to order confirmation page
             setTimeout(() => {
-                navigate(`/order-confirmation/${orderId}`);
+                navigate(`/confirmation/${orderId}`);
             }, 2000);
 
         } catch (error) {
