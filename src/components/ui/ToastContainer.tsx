@@ -10,7 +10,7 @@ export const ToastContainer: React.FC = () => {
     }
 
     return (
-        <div className="fixed top-4 right-4 z-50 flex flex-col items-end">
+        <div className="fixed top-4 right-4 z-[9999] flex flex-col items-end space-y-2 pointer-events-none">
             {notifications.map((notification) => (
                 <Toast
                     key={notification.id}

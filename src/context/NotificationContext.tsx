@@ -13,6 +13,7 @@ interface NotificationContextType {
     notifications: Notification[];
     showNotification: (message: string, type: NotificationType, duration?: number) => void;
     hideNotification: (id: string) => void;
+    clearAllNotifications: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -24,8 +25,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         setNotifications((prev) => prev.filter((notification) => notification.id !== id));
     }, []);
 
+    const clearAllNotifications = useCallback(() => {
+        setNotifications([]);
+    }, []);
+
     const showNotification = useCallback(
-        (message: string, type: NotificationType = 'info', duration = 3000) => {
+        (message: string, type: NotificationType = 'info', duration = 2000) => {
             const id = Date.now().toString();
             const notification: Notification = {
                 id,
@@ -34,7 +39,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                 duration,
             };
 
-            setNotifications((prev) => [...prev, notification]);
+            // Limit to 3 notifications at a time
+            setNotifications((prev) => {
+                const updatedNotifications = [...prev, notification];
+                if (updatedNotifications.length > 3) {
+                    // Remove the oldest notification
+                    return updatedNotifications.slice(1);
+                }
+                return updatedNotifications;
+            });
 
             if (duration !== Infinity) {
                 setTimeout(() => {
@@ -60,6 +73,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                 notifications,
                 showNotification,
                 hideNotification,
+                clearAllNotifications,
             }}
         >
             {children}
