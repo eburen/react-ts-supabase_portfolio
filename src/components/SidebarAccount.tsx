@@ -1,4 +1,3 @@
-import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { UserIcon, ShoppingBagIcon, HeartIcon, HomeIcon } from '@heroicons/react/24/outline';
 

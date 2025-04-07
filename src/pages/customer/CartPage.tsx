@@ -1,12 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { verifyCoupon } from '../../lib/api';
-import { formatCurrency } from '../../utils/formatCurrency';
-import { ArrowRightIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { useNotification } from '../../context/NotificationContext';
-import CouponApplier from '../../components/checkout/CouponApplier';
 
 const CartPage = () => {
     const { cartItems, updateCartItemQuantity, removeFromCart, clearCart, cartTotal } = useCart();

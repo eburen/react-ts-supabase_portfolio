@@ -201,7 +201,7 @@ const OrdersPage = () => {
                                                             {formatDate(order.created_at)}
                                                         </td>
                                                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
-                                                            ${parseFloat(order.total).toFixed(2)}
+                                                            ${parseFloat(order.total.toString()).toFixed(2)}
                                                         </td>
                                                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                                                             <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${getStatusColor(order.status as OrderStatus)}`}>
