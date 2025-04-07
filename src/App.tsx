@@ -19,6 +19,7 @@ import AddressesPage from './pages/customer/AddressesPage';
 import CheckoutPage from './pages/customer/CheckoutPage';
 import OrderConfirmationPage from './pages/customer/OrderConfirmationPage';
 import WishlistPage from './pages/customer/WishlistPage';
+import OrderDetailsPage from './pages/customer/OrderDetailsPage';
 
 // Admin pages
 import AdminDashboardPage from './pages/admin/DashboardPage';
@@ -88,6 +89,21 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return children;
 };
 
+// Protected customer routes
+const customerRoutes = [
+  { path: '/profile', element: <ProfilePage /> },
+  { path: '/account/addresses', element: <AddressesPage /> },
+  { path: '/account/addresses/new', element: <AddressFormPage /> },
+  { path: '/account/addresses/edit/:id', element: <AddressFormPage /> },
+  { path: '/shop/product/:id', element: <ProductPage /> },
+  { path: '/shop', element: <ShopPage /> },
+  { path: '/cart', element: <CartPage /> },
+  { path: '/checkout', element: <CheckoutPage /> },
+  { path: '/wishlist', element: <WishlistPage /> },
+  { path: '/confirmation/:orderId', element: <OrderConfirmationPage /> },
+  { path: '/order/:orderId', element: <OrderDetailsPage /> },
+];
+
 function App() {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -103,67 +119,17 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
 
           {/* Protected routes */}
-          <Route
-            path="/wishlist"
-            element={
-              <ProtectedRoute>
-                <WishlistPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/checkout"
-            element={
-              <ProtectedRoute>
-                <CheckoutPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/order-confirmation/:orderId"
-            element={
-              <ProtectedRoute>
-                <OrderConfirmationPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <ProfilePage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Address routes */}
-          <Route
-            path="/account/addresses"
-            element={
-              <ProtectedRoute>
-                <AddressesPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/account/addresses/new"
-            element={
-              <ProtectedRoute>
-                <AddressFormPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/account/addresses/edit/:id"
-            element={
-              <ProtectedRoute>
-                <AddressFormPage />
-              </ProtectedRoute>
-            }
-          />
+          {customerRoutes.map((route) => (
+            <Route
+              key={route.path}
+              path={route.path}
+              element={
+                <ProtectedRoute>
+                  {route.element}
+                </ProtectedRoute>
+              }
+            />
+          ))}
 
           {/* Admin routes */}
           <Route

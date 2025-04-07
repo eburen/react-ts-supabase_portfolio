@@ -52,7 +52,9 @@ export interface Product {
 }
 
 // Order Types
-export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'returned';
+export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled' | 'returned' | 'completed';
+export type PaymentStatus = 'paid' | 'pending' | 'refunded' | 'failed';
+export type PaymentMethod = 'credit_card' | 'cash_on_delivery' | 'paypal' | 'bank_transfer';
 
 export interface OrderItem {
     id: string;
@@ -63,6 +65,8 @@ export interface OrderItem {
     variation_name?: string;
     quantity: number;
     price: number;
+    created_at: string;
+    updated_at: string;
 }
 
 export interface Order {
@@ -70,12 +74,22 @@ export interface Order {
     user_id: string;
     status: OrderStatus;
     total: number;
-    items: OrderItem[];
+    order_items: OrderItem[];
     coupon_id?: string;
     discount_amount?: number;
     created_at: string;
     updated_at: string;
     shipping_address?: ShippingAddress;
+    payment_status: PaymentStatus;
+    payment_method: PaymentMethod;
+    delivery_date?: string;
+    delivery_time?: string;
+    gift_wrapping: boolean;
+    gift_note?: string;
+    special_instructions?: string;
+    express_shipping: boolean;
+    shipping_fee?: number;
+    gift_wrapping_fee?: number;
 }
 
 // Review Types

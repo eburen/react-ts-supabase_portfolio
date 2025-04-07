@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
-import { ShippingAddress, Gender } from '../../types';
+import { ShippingAddress, Gender, Review, Order, OrderItem } from '../../types';
+import { StarIcon } from '@heroicons/react/24/solid';
+import { StarIcon as StarOutlineIcon } from '@heroicons/react/24/outline';
 
 const ProfilePage = () => {
     const { user, signOut, updateUserProfile } = useAuth();
@@ -13,12 +15,20 @@ const ProfilePage = () => {
     const [gender, setGender] = useState<Gender | ''>(user?.gender || '');
     const [phoneNumber, setPhoneNumber] = useState(user?.phone_number || '');
     const [addresses, setAddresses] = useState<ShippingAddress[]>([]);
-    const [orders, setOrders] = useState<any[]>([]);
+    const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const [updateLoading, setUpdateLoading] = useState(false);
     const [addressActionLoading, setAddressActionLoading] = useState<{ [key: string]: boolean }>({});
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+
+    // State for order details and reviews
+    const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
+    const [reviewProduct, setReviewProduct] = useState<{ productId: string, productName: string, orderId: string } | null>(null);
+    const [rating, setRating] = useState<number>(5);
+    const [reviewText, setReviewText] = useState<string>('');
+    const [reviewLoading, setReviewLoading] = useState<boolean>(false);
+    const [userReviews, setUserReviews] = useState<Review[]>([]);
 
     // Tabs state for the profile page
     const [activeTab, setActiveTab] = useState('profile'); // 'profile', 'orders', 'addresses'
@@ -59,6 +69,15 @@ const ProfilePage = () => {
 
                 if (orderError) throw orderError;
                 setOrders(orderData || []);
+
+                // Fetch user reviews
+                const { data: reviewData, error: reviewError } = await supabase
+                    .from('reviews')
+                    .select('*')
+                    .eq('user_id', user.id);
+
+                if (reviewError) throw reviewError;
+                setUserReviews(reviewData || []);
             } catch (error) {
                 console.error('Error fetching user data:', error);
                 setError('Failed to load user data');
@@ -78,10 +97,10 @@ const ProfilePage = () => {
 
         try {
             const userData = {
-                full_name: fullName.trim() || null,
-                birthday: birthday || null,
-                gender: gender || null,
-                phone_number: phoneNumber.trim() || null
+                full_name: fullName.trim() || undefined,
+                birthday: birthday || undefined,
+                gender: gender || undefined,
+                phone_number: phoneNumber.trim() || undefined
             };
 
             console.log('Updating profile with data:', userData);
@@ -103,9 +122,10 @@ const ProfilePage = () => {
                 setGender(updatedUser.gender || '');
                 setPhoneNumber(updatedUser.phone_number || '');
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error updating profile:', error);
-            setError(error.message || 'Failed to update profile');
+            const errorMessage = error instanceof Error ? error.message : 'Failed to update profile';
+            setError(errorMessage);
         } finally {
             setUpdateLoading(false);
         }
@@ -182,6 +202,82 @@ const ProfilePage = () => {
         }
     };
 
+    // Function to check if a product has been reviewed
+    const hasBeenReviewed = (productId: string) => {
+        return userReviews.some(review => review.product_id === productId);
+    };
+
+    // Function to handle review submission
+    const handleSubmitReview = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!reviewProduct || !user) return;
+
+        setReviewLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('reviews')
+                .insert({
+                    product_id: reviewProduct.productId,
+                    user_id: user.id,
+                    username: user.full_name || 'Anonymous',
+                    rating,
+                    text: reviewText,
+                    created_at: new Date().toISOString()
+                })
+                .select();
+
+            if (error) throw error;
+
+            // Update local state
+            const newReview: Review = {
+                id: data?.[0]?.id || 'temp-id',
+                product_id: reviewProduct.productId,
+                user_id: user.id,
+                username: user.full_name || 'Anonymous',
+                rating,
+                text: reviewText,
+                created_at: new Date().toISOString()
+            };
+
+            setUserReviews([...userReviews, newReview]);
+
+            setSuccess('Review submitted successfully');
+            setReviewProduct(null);
+            setRating(5);
+            setReviewText('');
+        } catch (error: unknown) {
+            console.error('Error submitting review:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Failed to submit review';
+            setError(errorMessage);
+        } finally {
+            setReviewLoading(false);
+        }
+    };
+
+    // Function to get payment status badge
+    const getPaymentStatusBadge = (status: string) => {
+        switch (status) {
+            case 'paid':
+                return (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Paid
+                    </span>
+                );
+            case 'pending':
+                return (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                        Pending
+                    </span>
+                );
+            default:
+                return (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </span>
+                );
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
@@ -227,22 +323,22 @@ const ProfilePage = () => {
                     </div>
 
                     <div className="p-6">
+                        {error && (
+                            <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                                <span className="block sm:inline">{error}</span>
+                            </div>
+                        )}
+
+                        {success && (
+                            <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+                                <span className="block sm:inline">{success}</span>
+                            </div>
+                        )}
+
                         {/* Profile Tab */}
                         {activeTab === 'profile' && (
                             <div>
                                 <h2 className="text-2xl font-bold mb-6">My Profile</h2>
-
-                                {error && (
-                                    <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                                        <span className="block sm:inline">{error}</span>
-                                    </div>
-                                )}
-
-                                {success && (
-                                    <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
-                                        <span className="block sm:inline">{success}</span>
-                                    </div>
-                                )}
 
                                 <form onSubmit={handleProfileUpdate} className="space-y-6">
                                     <div>
@@ -374,6 +470,78 @@ const ProfilePage = () => {
                                     </div>
                                 ) : (
                                     <div className="space-y-6">
+                                        {/* Product Review Modal */}
+                                        {reviewProduct && (
+                                            <div className="fixed inset-0 overflow-y-auto z-50">
+                                                <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                                                    <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+                                                        <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+                                                    </div>
+                                                    <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+                                                    <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+                                                        <div>
+                                                            <h3 className="text-lg leading-6 font-medium text-gray-900">
+                                                                Review {reviewProduct.productName}
+                                                            </h3>
+                                                            <form onSubmit={handleSubmitReview} className="mt-4">
+                                                                <div className="mb-4">
+                                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                                        Rating
+                                                                    </label>
+                                                                    <div className="flex items-center">
+                                                                        {[1, 2, 3, 4, 5].map((star) => (
+                                                                            <button
+                                                                                key={star}
+                                                                                type="button"
+                                                                                onClick={() => setRating(star)}
+                                                                                className="focus:outline-none"
+                                                                            >
+                                                                                {star <= rating ? (
+                                                                                    <StarIcon className="h-8 w-8 text-yellow-400" />
+                                                                                ) : (
+                                                                                    <StarOutlineIcon className="h-8 w-8 text-gray-300 hover:text-yellow-400" />
+                                                                                )}
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="mb-4">
+                                                                    <label htmlFor="review-text" className="block text-sm font-medium text-gray-700 mb-2">
+                                                                        Your Review
+                                                                    </label>
+                                                                    <textarea
+                                                                        id="review-text"
+                                                                        rows={4}
+                                                                        value={reviewText}
+                                                                        onChange={(e) => setReviewText(e.target.value)}
+                                                                        className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                                                        placeholder="Share your experience with this product..."
+                                                                        required
+                                                                    />
+                                                                </div>
+                                                                <div className="flex justify-end gap-3 mt-5">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setReviewProduct(null)}
+                                                                        className="py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                                                    >
+                                                                        Cancel
+                                                                    </button>
+                                                                    <button
+                                                                        type="submit"
+                                                                        disabled={reviewLoading}
+                                                                        className={`py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${reviewLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                                                    >
+                                                                        {reviewLoading ? 'Submitting...' : 'Submit Review'}
+                                                                    </button>
+                                                                </div>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {orders.map((order) => (
                                             <div key={order.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                                                 <div className="flex justify-between items-start mb-4">
@@ -390,7 +558,10 @@ const ProfilePage = () => {
                                                             })}
                                                         </p>
                                                     </div>
-                                                    <div>
+                                                    <div className="flex items-center space-x-3">
+                                                        {order.payment_status && (
+                                                            <div>{getPaymentStatusBadge(order.payment_status)}</div>
+                                                        )}
                                                         <span
                                                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${order.status === 'delivered'
                                                                 ? 'bg-green-100 text-green-800'
@@ -408,13 +579,90 @@ const ProfilePage = () => {
                                                     </div>
                                                 </div>
 
-                                                <div className="border-t border-gray-200 pt-4">
+                                                <div className="flex space-x-3 mb-4">
+                                                    <button
+                                                        onClick={() => setSelectedOrder(selectedOrder === order.id ? null : order.id)}
+                                                        className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                                                    >
+                                                        {selectedOrder === order.id ? 'Hide Details' : 'View Summary'}
+                                                    </button>
+
+                                                    <Link
+                                                        to={`/order/${order.id}`}
+                                                        className="text-sm font-medium text-blue-600 hover:text-blue-500"
+                                                    >
+                                                        View Order Details
+                                                    </Link>
+                                                </div>
+
+                                                {selectedOrder === order.id && (
+                                                    <div className="mt-4 space-y-4">
+                                                        {/* Shipping Address */}
+                                                        {order.shipping_address && (
+                                                            <div className="bg-white p-4 rounded-md border border-gray-200">
+                                                                <h4 className="text-sm font-medium text-gray-900 mb-2">Shipping Address</h4>
+                                                                <div className="text-sm text-gray-500">
+                                                                    <p>{order.shipping_address.name}</p>
+                                                                    <p>{order.shipping_address.street}</p>
+                                                                    <p>
+                                                                        {order.shipping_address.city}, {order.shipping_address.state} {order.shipping_address.zipcode}
+                                                                    </p>
+                                                                    <p>{order.shipping_address.country}</p>
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Order Details */}
+                                                        <div className="bg-white p-4 rounded-md border border-gray-200">
+                                                            <h4 className="text-sm font-medium text-gray-900 mb-2">Order Details</h4>
+                                                            <div className="grid grid-cols-2 gap-2 text-sm text-gray-500">
+                                                                {order.payment_method && (
+                                                                    <div>
+                                                                        <span className="font-medium">Payment Method:</span> {order.payment_method.replace('_', ' ').split(' ').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                                                                    </div>
+                                                                )}
+                                                                {order.delivery_date && (
+                                                                    <div>
+                                                                        <span className="font-medium">Delivery Date:</span> {new Date(order.delivery_date).toLocaleDateString()}
+                                                                    </div>
+                                                                )}
+                                                                {order.delivery_time && (
+                                                                    <div>
+                                                                        <span className="font-medium">Delivery Time:</span> {order.delivery_time}
+                                                                    </div>
+                                                                )}
+                                                                {order.express_shipping && (
+                                                                    <div>
+                                                                        <span className="font-medium">Express Shipping:</span> Yes
+                                                                    </div>
+                                                                )}
+                                                                {order.gift_wrapping && (
+                                                                    <div>
+                                                                        <span className="font-medium">Gift Wrapping:</span> Yes
+                                                                    </div>
+                                                                )}
+                                                                {order.gift_note && (
+                                                                    <div className="col-span-2">
+                                                                        <span className="font-medium">Gift Note:</span> {order.gift_note}
+                                                                    </div>
+                                                                )}
+                                                                {order.special_instructions && (
+                                                                    <div className="col-span-2">
+                                                                        <span className="font-medium">Special Instructions:</span> {order.special_instructions}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                <div className="border-t border-gray-200 pt-4 mt-4">
                                                     <h4 className="text-sm font-medium text-gray-900 mb-2">
                                                         Items ({order.order_items.length})
                                                     </h4>
                                                     <ul className="divide-y divide-gray-200">
-                                                        {order.order_items.map((item: any) => (
-                                                            <li key={item.id} className="py-3 flex justify-between">
+                                                        {order.order_items.map((item: OrderItem) => (
+                                                            <li key={item.id} className="py-3 flex justify-between items-center">
                                                                 <div>
                                                                     <p className="text-sm font-medium text-gray-900">
                                                                         {item.product_name}
@@ -424,9 +672,40 @@ const ProfilePage = () => {
                                                                         Qty: {item.quantity} × ${item.price.toFixed(2)}
                                                                     </p>
                                                                 </div>
-                                                                <p className="text-sm font-medium text-gray-900">
-                                                                    ${(item.quantity * item.price).toFixed(2)}
-                                                                </p>
+                                                                <div className="flex space-x-3 items-center">
+                                                                    <p className="text-sm font-medium text-gray-900">
+                                                                        ${(item.quantity * item.price).toFixed(2)}
+                                                                    </p>
+
+                                                                    {/* Show review button only for delivered orders and products not yet reviewed */}
+                                                                    {order.status === 'delivered' && !hasBeenReviewed(item.product_id) && (
+                                                                        <button
+                                                                            onClick={() => setReviewProduct({
+                                                                                productId: item.product_id,
+                                                                                productName: item.product_name,
+                                                                                orderId: order.id
+                                                                            })}
+                                                                            className="text-xs font-medium text-indigo-600 hover:text-indigo-500 bg-indigo-50 px-2 py-1 rounded"
+                                                                        >
+                                                                            Write Review
+                                                                        </button>
+                                                                    )}
+
+                                                                    {/* Show "Reviewed" badge if already reviewed */}
+                                                                    {hasBeenReviewed(item.product_id) && (
+                                                                        <span className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded">
+                                                                            Reviewed
+                                                                        </span>
+                                                                    )}
+
+                                                                    {/* Link to product page */}
+                                                                    <Link
+                                                                        to={`/shop/product/${item.product_id}`}
+                                                                        className="text-xs text-blue-600 hover:text-blue-500 bg-blue-50 px-2 py-1 rounded"
+                                                                    >
+                                                                        View Product
+                                                                    </Link>
+                                                                </div>
                                                             </li>
                                                         ))}
                                                     </ul>
@@ -434,10 +713,52 @@ const ProfilePage = () => {
 
                                                 <div className="border-t border-gray-200 pt-4 mt-4">
                                                     <div className="flex justify-between text-sm">
-                                                        <p className="font-medium text-gray-900">Total</p>
-                                                        <p className="font-medium text-gray-900">${order.total.toFixed(2)}</p>
+                                                        <p className="font-medium text-gray-900">Subtotal</p>
+                                                        <p className="font-medium text-gray-900">
+                                                            ${(order.total - (order.shipping_fee ?? 0) - (order.gift_wrapping_fee ?? 0)).toFixed(2)}
+                                                        </p>
+                                                    </div>
+
+                                                    {order.shipping_fee !== undefined && order.shipping_fee > 0 && (
+                                                        <div className="flex justify-between text-sm mt-1">
+                                                            <p className="text-gray-500">Shipping {order.express_shipping ? '(Express)' : ''}</p>
+                                                            <p className="text-gray-500">${order.shipping_fee.toFixed(2)}</p>
+                                                        </div>
+                                                    )}
+
+                                                    {order.gift_wrapping_fee !== undefined && order.gift_wrapping_fee > 0 && (
+                                                        <div className="flex justify-between text-sm mt-1">
+                                                            <p className="text-gray-500">Gift Wrapping</p>
+                                                            <p className="text-gray-500">${order.gift_wrapping_fee.toFixed(2)}</p>
+                                                        </div>
+                                                    )}
+
+                                                    <div className="flex justify-between text-sm font-medium text-gray-900 mt-2 pt-2 border-t border-gray-200">
+                                                        <p>Total</p>
+                                                        <p>${order.total.toFixed(2)}</p>
                                                     </div>
                                                 </div>
+
+                                                {order.status === 'delivered' && (
+                                                    <div className="mt-4 pt-4 border-t border-gray-200">
+                                                        <h4 className="text-sm font-medium text-gray-900 mb-2">Track shipment</h4>
+                                                        <p className="text-sm text-gray-500">
+                                                            Your order has been delivered. Thank you for shopping with us!
+                                                        </p>
+                                                    </div>
+                                                )}
+
+                                                {order.status === 'shipped' && (
+                                                    <div className="mt-4 pt-4 border-t border-gray-200">
+                                                        <h4 className="text-sm font-medium text-gray-900 mb-2">Track shipment</h4>
+                                                        <p className="text-sm text-gray-500">
+                                                            Your order is on its way! You will receive it soon.
+                                                        </p>
+                                                        <button className="mt-2 inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                                            Track Package
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
