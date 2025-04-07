@@ -3,11 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { verifyCoupon } from '../../lib/api';
+import { formatCurrency } from '../../utils/formatCurrency';
+import { ArrowRightIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { useNotification } from '../../context/NotificationContext';
 
 const CartPage = () => {
     const { cartItems, updateCartItemQuantity, removeFromCart, clearCart, cartTotal } = useCart();
     const { user } = useAuth();
     const navigate = useNavigate();
+    const { showNotification } = useNotification();
     const [couponCode, setCouponCode] = useState('');
     const [couponError, setCouponError] = useState<string | null>(null);
     const [appliedCoupon, setAppliedCoupon] = useState<{
@@ -101,7 +105,7 @@ const CartPage = () => {
 
         // Check if cart is empty
         if (cartItems.length === 0) {
-            alert('Your cart is empty. Please add items before checkout.');
+            showNotification('Your cart is empty. Please add items before checkout.', 'error');
             return;
         }
 

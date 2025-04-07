@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useCallback 
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { CheckoutCartItem } from '../types/checkout';
+import { useNotification } from './NotificationContext';
 
 // Use the CheckoutCartItem type for UI display with product details
 export type CartItemWithDetails = CheckoutCartItem;
@@ -25,6 +26,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const [cartItems, setCartItems] = useState<CartItemWithDetails[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { user } = useAuth();
+    const { showNotification } = useNotification();
 
     const fetchCart = useCallback(async () => {
         if (!user) return;
@@ -242,13 +244,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 };
 
                 setCartItems(updatedCartItems);
+
+                // Show updated notification
+                const itemName = variationData
+                    ? `${productData.name} (${variationData.name})`
+                    : productData.name;
+                showNotification(`Updated: ${itemName} (${newQuantity} in cart)`, 'success');
+
                 setIsLoading(false);
                 return;
             }
 
             // If the product is not already in the cart, add it as a new item
             if (user) {
-                // For logged in users, save to database
+                // For logged in users, add to database
                 const { data, error } = await supabase
                     .from('cart_items')
                     .insert({
@@ -257,31 +266,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
                         variation_id: variationId || null,
                         quantity
                     })
-                    .select()
+                    .select('*')
                     .single();
 
                 if (error) {
                     console.error('Error adding to cart:', error);
-
-                    // Handle RLS policy error - fall back to local storage if we have RLS issues
-                    if (error.code === '42501') {
-                        // Create a local cart item instead with product details
-                        const newItem: CartItemWithDetails = {
-                            id: Date.now().toString(), // Temporary ID
-                            product_id: productId,
-                            variation_id: variationId,
-                            quantity,
-                            // Add product details
-                            name: productData.name,
-                            price: finalPrice, // Use the sale price if applicable
-                            original_price: saleData ? basePrice : undefined, // Store original price if on sale
-                            image: productData.images?.[0] || '/images/placeholder.jpg',
-                            variation_name: variationData?.name || null
-                        };
-
-                        setCartItems(prev => [...prev, newItem]);
-                        return; // Exit early after handling the error
-                    } else {
+                    if (error.code !== '42501') {
                         throw error;
                     }
                 }
@@ -297,6 +287,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 };
 
                 setCartItems(prev => [...prev, newItem]);
+
+                // Show success notification
+                const itemName = variationData
+                    ? `${productData.name} (${variationData.name})`
+                    : productData.name;
+                showNotification(`Added to cart: ${itemName}`, 'success');
             } else {
                 // For anonymous users, save to state/localStorage with product details
                 const newItem: CartItemWithDetails = {
@@ -313,9 +309,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 };
 
                 setCartItems(prev => [...prev, newItem]);
+
+                // Show success notification
+                const itemName = variationData
+                    ? `${productData.name} (${variationData.name})`
+                    : productData.name;
+                showNotification(`Added to cart: ${itemName}`, 'success');
             }
         } catch (error) {
             console.error('Error adding to cart:', error);
+            showNotification('Failed to add item to cart', 'error');
         } finally {
             setIsLoading(false);
         }
@@ -325,6 +328,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setIsLoading(true);
 
         try {
+            // Find the item before removing it so we can show a notification
+            const itemToRemove = cartItems.find(item => item.id === itemId);
+
             if (user) {
                 // For logged in users, remove from database
                 const { error } = await supabase
@@ -343,18 +349,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
             // Update local state
             setCartItems(prev => prev.filter(item => item.id !== itemId));
+
+            // Show notification if we found the item
+            if (itemToRemove) {
+                const itemName = itemToRemove.variation_name
+                    ? `${itemToRemove.name} (${itemToRemove.variation_name})`
+                    : itemToRemove.name;
+                showNotification(`Removed from cart: ${itemName}`, 'info');
+            }
         } catch (error) {
             console.error('Error removing from cart:', error);
+            showNotification('Failed to remove item from cart', 'error');
         } finally {
             setIsLoading(false);
         }
     };
 
     const updateQuantity = async (itemId: string, quantity: number) => {
-        if (quantity < 1) {
-            return removeFromCart(itemId);
-        }
-
         setIsLoading(true);
 
         try {
@@ -367,7 +378,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
                 if (error) {
                     console.error('Error updating cart quantity:', error);
-                    // If it's an RLS error, just update the local state anyway
                     if (error.code !== '42501') {
                         throw error;
                     }
@@ -375,13 +385,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
             }
 
             // Update local state
-            setCartItems(prev =>
-                prev.map(item =>
-                    item.id === itemId ? { ...item, quantity } : item
-                )
-            );
+            const updatedItems = cartItems.map(item => {
+                if (item.id === itemId) {
+                    const updatedItem = { ...item, quantity };
+
+                    // Show update notification
+                    const itemName = item.variation_name
+                        ? `${item.name} (${item.variation_name})`
+                        : item.name;
+                    showNotification(`Updated: ${itemName} (${quantity} in cart)`, 'info');
+
+                    return updatedItem;
+                }
+                return item;
+            });
+
+            setCartItems(updatedItems);
         } catch (error) {
-            console.error('Error updating cart:', error);
+            console.error('Error updating cart quantity:', error);
+            showNotification('Failed to update item quantity', 'error');
         } finally {
             setIsLoading(false);
         }
@@ -392,7 +414,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
         try {
             if (user) {
-                // For logged in users, clear from database
+                // For logged in users, clear cart in database
                 const { error } = await supabase
                     .from('cart_items')
                     .delete()
@@ -400,7 +422,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
                 if (error) {
                     console.error('Error clearing cart:', error);
-                    // If it's an RLS error, just clear the local state anyway
                     if (error.code !== '42501') {
                         throw error;
                     }
@@ -410,12 +431,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
             // Clear local state
             setCartItems([]);
 
-            // Clear localStorage for anonymous users
-            if (!user) {
-                localStorage.removeItem('cart');
-            }
+            // Show notification
+            showNotification('Cart cleared successfully', 'info');
         } catch (error) {
             console.error('Error clearing cart:', error);
+            showNotification('Failed to clear cart', 'error');
         } finally {
             setIsLoading(false);
         }

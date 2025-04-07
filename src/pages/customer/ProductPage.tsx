@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useCart } from '../../context/CartContext';
+import { useWishlist } from '../../context/WishlistContext';
 import { Product, ProductVariation, Review } from '../../types';
-import { TagIcon } from '@heroicons/react/24/solid';
+import { TagIcon, HeartIcon as HeartIconOutline } from '@heroicons/react/24/outline';
+import { HeartIcon as HeartIconSolid } from '@heroicons/react/24/solid';
 
 const ProductPage = () => {
     const { id } = useParams<{ id: string }>();
     const { addToCart } = useCart();
+    const { addToWishlist, isInWishlist, removeFromWishlist } = useWishlist();
     const [product, setProduct] = useState<Product | null>(null);
     const [variations, setVariations] = useState<ProductVariation[]>([]);
     const [reviews, setReviews] = useState<Review[]>([]);
@@ -16,6 +19,8 @@ const ProductPage = () => {
     const [selectedVariation, setSelectedVariation] = useState<string | null>(null);
     const [quantity, setQuantity] = useState<number>(1);
     const [activeImageIndex, setActiveImageIndex] = useState<number>(0);
+    const [isFavorite, setIsFavorite] = useState<boolean>(false);
+    const [favoriteId, setFavoriteId] = useState<string | null>(null);
 
     useEffect(() => {
         async function fetchProductDetails() {
@@ -122,6 +127,22 @@ const ProductPage = () => {
         fetchProductDetails();
     }, [id]);
 
+    // Check if product is in favorites
+    useEffect(() => {
+        if (product) {
+            const inWishlist = isInWishlist(product.id);
+            setIsFavorite(inWishlist);
+
+            // If it's in the wishlist, find the item ID for removal
+            if (inWishlist) {
+                const wishlistItem = product && useWishlist().wishlistItems.find(item => item.product_id === product.id);
+                if (wishlistItem) {
+                    setFavoriteId(wishlistItem.id);
+                }
+            }
+        }
+    }, [product, isInWishlist]);
+
     const handleAddToCart = async () => {
         if (!product) return;
 
@@ -131,10 +152,32 @@ const ProductPage = () => {
             } else {
                 await addToCart(product.id, quantity);
             }
-            alert('Product added to cart!');
+            // Notification is now shown by the CartContext
         } catch (error) {
             console.error('Error adding product to cart:', error);
-            alert('Failed to add product to cart');
+            // Notification is now shown by the CartContext
+        }
+    };
+
+    const handleToggleFavorite = async () => {
+        if (!product) return;
+
+        try {
+            if (isFavorite && favoriteId) {
+                await removeFromWishlist(favoriteId);
+                setIsFavorite(false);
+                setFavoriteId(null);
+            } else {
+                await addToWishlist(product.id);
+                setIsFavorite(true);
+                // Update favoriteId after adding to wishlist
+                const wishlistItem = product && useWishlist().wishlistItems.find(item => item.product_id === product.id);
+                if (wishlistItem) {
+                    setFavoriteId(wishlistItem.id);
+                }
+            }
+        } catch (error) {
+            console.error('Error toggling favorite status:', error);
         }
     };
 
@@ -412,17 +455,28 @@ const ProductPage = () => {
                             </div>
 
                             {/* Add to cart button */}
-                            <div>
+                            <div className="mt-10 flex sm:flex-col1">
                                 <button
                                     type="button"
                                     onClick={handleAddToCart}
                                     disabled={!inStock}
-                                    className={`w-full py-3 px-8 rounded-md text-white font-medium text-center ${inStock
-                                        ? 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2'
-                                        : 'bg-gray-400 cursor-not-allowed'
-                                        }`}
+                                    className={`max-w-xs flex-1 ${inStock ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-gray-400 cursor-not-allowed'
+                                        } border border-transparent rounded-md py-3 px-8 flex items-center justify-center text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:w-full`}
                                 >
                                     {inStock ? 'Add to Cart' : 'Out of Stock'}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={handleToggleFavorite}
+                                    className="ml-4 py-3 px-3 rounded-md flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-500"
+                                >
+                                    {isFavorite ? (
+                                        <HeartIconSolid className="h-6 w-6 flex-shrink-0 text-red-500" aria-hidden="true" />
+                                    ) : (
+                                        <HeartIconOutline className="h-6 w-6 flex-shrink-0" aria-hidden="true" />
+                                    )}
+                                    <span className="sr-only">{isFavorite ? 'Remove from favorites' : 'Add to favorites'}</span>
                                 </button>
                             </div>
                         </div>

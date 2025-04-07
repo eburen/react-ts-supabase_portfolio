@@ -18,6 +18,7 @@ import AddressFormPage from './pages/customer/AddressFormPage';
 import AddressesPage from './pages/customer/AddressesPage';
 import CheckoutPage from './pages/customer/CheckoutPage';
 import OrderConfirmationPage from './pages/customer/OrderConfirmationPage';
+import WishlistPage from './pages/customer/WishlistPage';
 
 // Admin pages
 import AdminDashboardPage from './pages/admin/DashboardPage';
@@ -102,6 +103,15 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
 
           {/* Protected routes */}
+          <Route
+            path="/wishlist"
+            element={
+              <ProtectedRoute>
+                <WishlistPage />
+              </ProtectedRoute>
+            }
+          />
+
           <Route
             path="/checkout"
             element={

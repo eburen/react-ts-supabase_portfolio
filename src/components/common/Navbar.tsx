@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import { useWishlist } from '../../context/WishlistContext';
+import { ShoppingCartIcon, HeartIcon } from '@heroicons/react/24/outline';
 
 export default function Navbar() {
     const { user, signOut } = useAuth();
     const { totalItems } = useCart();
+    const { wishlistItems } = useWishlist();
     const navigate = useNavigate();
     const location = useLocation();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -71,14 +74,27 @@ export default function Navbar() {
 
                     {/* Desktop right navigation */}
                     <div className="hidden md:flex md:items-center md:space-x-6">
+                        {user && (
+                            <Link
+                                to="/wishlist"
+                                className="relative inline-flex p-2 text-gray-500 hover:text-indigo-600 transition"
+                                aria-label="Favorites"
+                            >
+                                <HeartIcon className="h-6 w-6" />
+                                {wishlistItems.length > 0 && (
+                                    <span className="absolute -top-1 -right-1 flex items-center justify-center h-5 w-5 rounded-full bg-red-500 text-white text-xs font-bold">
+                                        {wishlistItems.length}
+                                    </span>
+                                )}
+                            </Link>
+                        )}
+
                         <Link
                             to="/cart"
                             className="relative inline-flex p-2 text-gray-500 hover:text-indigo-600 transition"
                             aria-label="Shopping cart"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
+                            <ShoppingCartIcon className="h-6 w-6" />
                             {totalItems > 0 && (
                                 <span className="absolute -top-1 -right-1 flex items-center justify-center h-5 w-5 rounded-full bg-indigo-600 text-white text-xs font-bold">
                                     {totalItems}
@@ -129,14 +145,27 @@ export default function Navbar() {
 
                     {/* Mobile menu button */}
                     <div className="md:hidden flex items-center">
+                        {user && (
+                            <Link
+                                to="/wishlist"
+                                className="relative mr-2 p-2 text-gray-500 hover:text-indigo-600"
+                                aria-label="Favorites"
+                            >
+                                <HeartIcon className="h-6 w-6" />
+                                {wishlistItems.length > 0 && (
+                                    <span className="absolute -top-1 -right-1 flex items-center justify-center h-5 w-5 rounded-full bg-red-500 text-white text-xs font-bold">
+                                        {wishlistItems.length}
+                                    </span>
+                                )}
+                            </Link>
+                        )}
+
                         <Link
                             to="/cart"
                             className="relative mr-2 p-2 text-gray-500 hover:text-indigo-600"
                             aria-label="Shopping cart"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
+                            <ShoppingCartIcon className="h-6 w-6" />
                             {totalItems > 0 && (
                                 <span className="absolute -top-1 -right-1 flex items-center justify-center h-5 w-5 rounded-full bg-indigo-600 text-white text-xs font-bold">
                                     {totalItems}
@@ -179,6 +208,14 @@ export default function Navbar() {
                     >
                         Shop
                     </Link>
+                    {user && (
+                        <Link
+                            to="/wishlist"
+                            className={`${location.pathname === '/wishlist' ? 'bg-indigo-50 border-indigo-500 text-indigo-600' : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800'} block pl-3 pr-4 py-2 border-l-4 text-base font-medium`}
+                        >
+                            Favorites
+                        </Link>
+                    )}
                     {isAdmin && (
                         <Link
                             to="/admin"
