@@ -12,8 +12,7 @@ import {
     StarIcon as StarOutlineIcon
 } from '@heroicons/react/24/outline';
 import { StarIcon } from '@heroicons/react/24/solid';
-import { ShippingAddress } from '../../types/checkout';
-import { Review, Order, OrderItem } from '../../types';
+import { Review, Order } from '../../types';
 
 const OrderDetailsPage = () => {
     const { orderId } = useParams();
@@ -87,7 +86,7 @@ const OrderDetailsPage = () => {
     // Function to handle review submission
     const handleSubmitReview = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!reviewProduct || !user) return;
+        if (!reviewProduct || !user || !order) return;
 
         setReviewLoading(true);
         try {

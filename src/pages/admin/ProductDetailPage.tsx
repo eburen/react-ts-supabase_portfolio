@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { supabase } from '../../lib/supabase';
@@ -17,39 +17,33 @@ const ProductDetailPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (id) {
-            fetchProductDetails();
-        }
-    }, [id]);
-
     const fetchProductDetails = async () => {
+        if (!id) return;
+
         try {
             setLoading(true);
-
-            // Fetch product
-            const { data: productData, error: productError } = await supabase
+            const { data, error } = await supabase
                 .from('products')
                 .select('*')
                 .eq('id', id)
                 .single();
 
-            if (productError) throw productError;
-            if (!productData) throw new Error('Product not found');
+            if (error) throw error;
 
-            setProduct(productData);
+            if (data) {
+                setProduct(data);
 
-            // Fetch variations
-            const { data: variationsData, error: variationsError } = await supabase
-                .from('product_variations')
-                .select('*')
-                .eq('product_id', id)
-                .order('type', { ascending: true })
-                .order('name', { ascending: true });
+                // Fetch product variations
+                const { data: variationsData, error: variationsError } = await supabase
+                    .from('product_variations')
+                    .select('*')
+                    .eq('product_id', id);
 
-            if (variationsError) throw variationsError;
-            setVariations(variationsData || []);
-
+                if (variationsError) throw variationsError;
+                setVariations(variationsData || []);
+            } else {
+                setError('Product not found');
+            }
         } catch (error) {
             console.error('Error fetching product details:', error);
             setError('Failed to load product details');
@@ -58,7 +52,13 @@ const ProductDetailPage = () => {
         }
     };
 
+    useEffect(() => {
+        fetchProductDetails();
+    }, [id]);
+
     const handleDeleteProduct = async () => {
+        if (!product) return;
+
         if (window.confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
             try {
                 // First delete variations to maintain referential integrity

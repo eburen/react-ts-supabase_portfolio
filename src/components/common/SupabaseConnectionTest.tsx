@@ -1,10 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { validateSupabaseConnection } from '../../utils/validateSupabase';
 import { useNotification } from '../../context/NotificationContext';
 
 export default function SupabaseConnectionTest() {
     const { showNotification } = useNotification();
-    const [connectionChecked, setConnectionChecked] = useState(false);
 
     useEffect(() => {
         const checkConnection = async () => {
@@ -15,8 +14,6 @@ export default function SupabaseConnectionTest() {
             } else {
                 showNotification('Supabase connection failed. Check console for details.', 'error', 5000);
             }
-
-            setConnectionChecked(true);
         };
 
         checkConnection();

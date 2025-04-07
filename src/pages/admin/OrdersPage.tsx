@@ -5,8 +5,17 @@ import { supabase } from '../../lib/supabase';
 import { Order, OrderStatus } from '../../types';
 import { EyeIcon } from '@heroicons/react/24/outline';
 
+// Extend the Order type to include the users property
+interface ExtendedOrder extends Order {
+    users?: {
+        id: string;
+        email: string;
+        full_name: string;
+    }
+}
+
 const OrdersPage = () => {
-    const [orders, setOrders] = useState<Order[]>([]);
+    const [orders, setOrders] = useState<ExtendedOrder[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentStatus, setCurrentStatus] = useState<string>('all');
     const [searchTerm, setSearchTerm] = useState('');

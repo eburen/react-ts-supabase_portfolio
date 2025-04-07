@@ -8,8 +8,9 @@ import { useNotification } from '../../context/NotificationContext';
 
 interface ExtendedOrder extends Order {
     users?: {
-        full_name: string;
+        id: string;
         email: string;
+        full_name: string;
     };
     order_items: OrderItem[];
 }
@@ -33,23 +34,26 @@ const OrderDetailPage = () => {
                 .from('orders')
                 .select(`
                     *,
-                    users:user_id (full_name, email),
-                    order_items(*)
+                    users:user_id (
+                        id,
+                        email,
+                        full_name
+                    ),
+                    order_items (*)
                 `)
                 .eq('id', id)
                 .single();
 
             if (error) throw error;
 
-            if (data) {
-                setOrder(data as ExtendedOrder);
-                setCurrentStatus(data.status as OrderStatus);
-            } else {
-                setError('Order not found');
+            const orderData = data as ExtendedOrder;
+            setOrder(orderData);
+            if (orderData && orderData.status) {
+                setCurrentStatus(orderData.status as OrderStatus);
             }
         } catch (error) {
             console.error('Error fetching order details:', error);
-            setError('Failed to load order details');
+            setError('Failed to load order details.');
         } finally {
             setLoading(false);
         }
@@ -60,7 +64,7 @@ const OrderDetailPage = () => {
     }, [fetchOrderDetails]);
 
     const updateOrderStatus = async () => {
-        if (currentStatus === order.status) return;
+        if (!order || currentStatus === order.status) return;
 
         setUpdatingStatus(true);
         try {
@@ -72,9 +76,7 @@ const OrderDetailPage = () => {
             if (error) throw error;
 
             // Update local order state
-            if (order) {
-                setOrder({ ...order, status: currentStatus });
-            }
+            setOrder({ ...order, status: currentStatus });
 
             showNotification(`Order status updated to ${currentStatus}`, 'success');
         } catch (error) {
