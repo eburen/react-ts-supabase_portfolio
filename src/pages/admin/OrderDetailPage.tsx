@@ -4,6 +4,7 @@ import AdminLayout from '../../components/admin/AdminLayout';
 import { supabase } from '../../lib/supabase';
 import { Order, OrderItem, OrderStatus } from '../../types';
 import { ArrowLeftIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { useNotification } from '../../context/NotificationContext';
 
 interface ExtendedOrder extends Order {
     users?: {
@@ -16,6 +17,7 @@ interface ExtendedOrder extends Order {
 const OrderDetailPage = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { showNotification } = useNotification();
     const [order, setOrder] = useState<ExtendedOrder | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -58,14 +60,14 @@ const OrderDetailPage = () => {
     }, [fetchOrderDetails]);
 
     const updateOrderStatus = async () => {
-        if (!id) return;
+        if (currentStatus === order.status) return;
 
+        setUpdatingStatus(true);
         try {
-            setUpdatingStatus(true);
             const { error } = await supabase
                 .from('orders')
                 .update({ status: currentStatus })
-                .eq('id', id);
+                .eq('id', order.id);
 
             if (error) throw error;
 
@@ -73,9 +75,11 @@ const OrderDetailPage = () => {
             if (order) {
                 setOrder({ ...order, status: currentStatus });
             }
+
+            showNotification(`Order status updated to ${currentStatus}`, 'success');
         } catch (error) {
             console.error('Error updating order status:', error);
-            alert('Failed to update order status');
+            showNotification('Failed to update order status', 'error');
         } finally {
             setUpdatingStatus(false);
         }

@@ -6,10 +6,12 @@ import { Product, ProductVariation } from '../../types';
 import { ArrowLeftIcon, XMarkIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import ProductVariationManager from '../../components/admin/ProductVariationManager';
 import ProductSaleManager from '../../components/admin/ProductSaleManager';
+import { useNotification } from '../../context/NotificationContext';
 
 const ProductDetailPage = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { showNotification } = useNotification();
     const [product, setProduct] = useState<Product | null>(null);
     const [variations, setVariations] = useState<ProductVariation[]>([]);
     const [loading, setLoading] = useState(true);
@@ -57,11 +59,9 @@ const ProductDetailPage = () => {
     };
 
     const handleDeleteProduct = async () => {
-        if (!product) return;
-
-        if (window.confirm(`Are you sure you want to delete ${product.name}?`)) {
+        if (window.confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
             try {
-                // First delete all variations
+                // First delete variations to maintain referential integrity
                 if (variations.length > 0) {
                     const { error: variationsError } = await supabase
                         .from('product_variations')
@@ -83,7 +83,7 @@ const ProductDetailPage = () => {
                 navigate('/admin/products');
             } catch (error) {
                 console.error('Error deleting product:', error);
-                alert('Failed to delete product');
+                showNotification('Failed to delete product', 'error');
             }
         }
     };

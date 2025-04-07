@@ -3,7 +3,8 @@ import {
     CheckCircleIcon,
     XCircleIcon,
     InformationCircleIcon,
-    XMarkIcon
+    XMarkIcon,
+    ExclamationTriangleIcon
 } from '@heroicons/react/24/solid';
 import { Notification, NotificationType } from '../../context/NotificationContext';
 
@@ -37,6 +38,8 @@ export const Toast: React.FC<ToastProps> = ({ notification, onClose }) => {
                 return <CheckCircleIcon className="h-5 w-5 text-green-400" aria-hidden="true" />;
             case 'error':
                 return <XCircleIcon className="h-5 w-5 text-red-400" aria-hidden="true" />;
+            case 'warning':
+                return <ExclamationTriangleIcon className="h-5 w-5 text-amber-400" aria-hidden="true" />;
             case 'info':
             default:
                 return <InformationCircleIcon className="h-5 w-5 text-blue-400" aria-hidden="true" />;
@@ -49,6 +52,8 @@ export const Toast: React.FC<ToastProps> = ({ notification, onClose }) => {
                 return 'bg-green-50';
             case 'error':
                 return 'bg-red-50';
+            case 'warning':
+                return 'bg-amber-50';
             case 'info':
             default:
                 return 'bg-blue-50';
@@ -61,6 +66,8 @@ export const Toast: React.FC<ToastProps> = ({ notification, onClose }) => {
                 return 'border-green-200';
             case 'error':
                 return 'border-red-200';
+            case 'warning':
+                return 'border-amber-200';
             case 'info':
             default:
                 return 'border-blue-200';
@@ -73,6 +80,8 @@ export const Toast: React.FC<ToastProps> = ({ notification, onClose }) => {
                 return 'text-green-800';
             case 'error':
                 return 'text-red-800';
+            case 'warning':
+                return 'text-amber-800';
             case 'info':
             default:
                 return 'text-blue-800';

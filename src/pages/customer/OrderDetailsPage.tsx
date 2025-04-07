@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useNotification } from '../../context/NotificationContext';
 import {
     CheckCircleIcon,
     CalendarIcon,
@@ -18,6 +19,7 @@ const OrderDetailsPage = () => {
     const { orderId } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { showNotification } = useNotification();
 
     const [order, setOrder] = useState<Order | null>(null);
     const [loading, setLoading] = useState(true);
@@ -89,6 +91,18 @@ const OrderDetailsPage = () => {
 
         setReviewLoading(true);
         try {
+            // Verify this is a completed/delivered order and belongs to the current user
+            if (order.user_id !== user.id || (order.status !== 'completed' && order.status !== 'delivered')) {
+                throw new Error('You can only review products from your completed orders');
+            }
+
+            // Check if the product is actually part of this order
+            const isProductInOrder = order.order_items.some(item => item.product_id === reviewProduct.productId);
+
+            if (!isProductInOrder) {
+                throw new Error('You can only review products you have purchased');
+            }
+
             const { data, error } = await supabase
                 .from('reviews')
                 .insert({
@@ -119,11 +133,10 @@ const OrderDetailsPage = () => {
             setReviewProduct(null);
             setRating(5);
             setReviewText('');
-            alert('Review submitted successfully');
+            showNotification('Review submitted successfully', 'success');
         } catch (error: unknown) {
-            console.error('Error submitting review:', error);
             const errorMessage = error instanceof Error ? error.message : 'Failed to submit review';
-            alert(errorMessage);
+            showNotification(errorMessage, 'error');
         } finally {
             setReviewLoading(false);
         }

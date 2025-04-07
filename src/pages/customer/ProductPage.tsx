@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useWishlist } from '../../context/WishlistContext';
+import { useNotification } from '../../context/NotificationContext';
 import { Product, ProductVariation, Review } from '../../types';
 import { TagIcon, HeartIcon as HeartIconOutline, StarIcon as StarOutlineIcon } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartIconSolid, StarIcon } from '@heroicons/react/24/solid';
@@ -11,8 +12,9 @@ import { HeartIcon as HeartIconSolid, StarIcon } from '@heroicons/react/24/solid
 const ProductPage = () => {
     const { id } = useParams<{ id: string }>();
     const { addToCart } = useCart();
-    const { addToWishlist, isInWishlist, removeFromWishlist } = useWishlist();
+    const { addToWishlist, isInWishlist, removeFromWishlist, wishlistItems } = useWishlist();
     const { user } = useAuth();
+    const { showNotification } = useNotification();
     const navigate = useNavigate();
     const [product, setProduct] = useState<Product | null>(null);
     const [variations, setVariations] = useState<ProductVariation[]>([]);
@@ -30,114 +32,114 @@ const ProductPage = () => {
     const [reviewText, setReviewText] = useState('');
     const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
-    useEffect(() => {
-        async function fetchProductDetails() {
-            if (!id) return;
+    const fetchProductDetails = async () => {
+        if (!id) return;
 
-            try {
-                // Fetch product with sales information
-                const { data: productData, error: productError } = await supabase
-                    .from('products')
-                    .select('*')
-                    .eq('id', id)
-                    .single();
+        try {
+            // Fetch product with sales information
+            const { data: productData, error: productError } = await supabase
+                .from('products')
+                .select('*')
+                .eq('id', id)
+                .single();
 
-                if (productError) throw productError;
-                if (!productData) throw new Error('Product not found');
+            if (productError) throw productError;
+            if (!productData) throw new Error('Product not found');
 
-                // Fetch active sale for the product
-                const { data: productSaleData } = await supabase
+            // Fetch active sale for the product
+            const { data: productSaleData } = await supabase
+                .from('product_sales')
+                .select('*')
+                .eq('product_id', id)
+                .is('variation_id', null)
+                .eq('active', true)
+                .gte('end_date', new Date().toISOString().split('T')[0])
+                .lte('start_date', new Date().toISOString().split('T')[0])
+                .maybeSingle();
+
+            // Attach sale to product if exists
+            productData.sale = productSaleData || undefined;
+            setProduct(productData);
+
+            // Fetch product variations with sales information
+            const { data: variationsData, error: variationsError } = await supabase
+                .from('product_variations')
+                .select(`
+                    *,
+                    sale:product_sales(
+                        id,
+                        product_id,
+                        variation_id,
+                        discount_percentage,
+                        start_date,
+                        end_date,
+                        active,
+                        created_at
+                    )
+                `)
+                .eq('product_id', id);
+
+            if (variationsError) throw variationsError;
+
+            let processedVariations = variationsData || [];
+
+            // Process sale information for variations
+            if (variationsData && variationsData.length > 0) {
+                // Fetch active sales separately
+                const { data: salesData } = await supabase
                     .from('product_sales')
                     .select('*')
                     .eq('product_id', id)
-                    .is('variation_id', null)
                     .eq('active', true)
                     .gte('end_date', new Date().toISOString().split('T')[0])
-                    .lte('start_date', new Date().toISOString().split('T')[0])
-                    .maybeSingle();
+                    .lte('start_date', new Date().toISOString().split('T')[0]);
 
-                // Attach sale to product if exists
-                productData.sale = productSaleData || undefined;
-                setProduct(productData);
+                const activeSales = salesData || [];
 
-                // Fetch product variations with sales information
-                const { data: variationsData, error: variationsError } = await supabase
-                    .from('product_variations')
-                    .select(`
-                        *,
-                        sale:product_sales(
-                            id,
-                            product_id,
-                            variation_id,
-                            discount_percentage,
-                            start_date,
-                            end_date,
-                            active,
-                            created_at
-                        )
-                    `)
-                    .eq('product_id', id);
+                // Match variations with their sales
+                processedVariations = variationsData.map(variation => {
+                    const processedVariation = { ...variation };
+                    const matchingSale = activeSales.find(
+                        sale => sale.variation_id === variation.id
+                    );
 
-                if (variationsError) throw variationsError;
-
-                let processedVariations = variationsData || [];
-
-                // Process sale information for variations
-                if (variationsData && variationsData.length > 0) {
-                    // Fetch active sales separately
-                    const { data: salesData } = await supabase
-                        .from('product_sales')
-                        .select('*')
-                        .eq('product_id', id)
-                        .eq('active', true)
-                        .gte('end_date', new Date().toISOString().split('T')[0])
-                        .lte('start_date', new Date().toISOString().split('T')[0]);
-
-                    const activeSales = salesData || [];
-
-                    // Match variations with their sales
-                    processedVariations = variationsData.map(variation => {
-                        const processedVariation = { ...variation };
-                        const matchingSale = activeSales.find(
-                            sale => sale.variation_id === variation.id
-                        );
-
-                        processedVariation.sale = matchingSale || undefined;
-                        return processedVariation;
-                    });
-                }
-
-                setVariations(processedVariations);
-
-                // Set default selected variation if available
-                if (processedVariations.length > 0) {
-                    setSelectedVariation(processedVariations[0].id);
-                }
-
-                // Fetch reviews
-                const { data: reviewsData, error: reviewsError } = await supabase
-                    .from('reviews')
-                    .select('*')
-                    .eq('product_id', id)
-                    .order('created_at', { ascending: false });
-
-                if (reviewsError) throw reviewsError;
-                setReviews(reviewsData || []);
-
-                // Check if current user has already reviewed this product
-                if (user) {
-                    const userReview = reviewsData?.find(review => review.user_id === user.id);
-                    setUserHasReviewed(!!userReview);
-                }
-
-            } catch (error) {
-                console.error('Error fetching product details:', error);
-                setError('Failed to load product details');
-            } finally {
-                setLoading(false);
+                    processedVariation.sale = matchingSale || undefined;
+                    return processedVariation;
+                });
             }
-        }
 
+            setVariations(processedVariations);
+
+            // Set default selected variation if available
+            if (processedVariations.length > 0) {
+                setSelectedVariation(processedVariations[0].id);
+            }
+
+            // Fetch reviews
+            const { data: reviewsData, error: reviewsError } = await supabase
+                .from('reviews')
+                .select('*')
+                .eq('product_id', id)
+                .order('created_at', { ascending: false });
+
+            if (reviewsError) throw reviewsError;
+            setReviews(reviewsData || []);
+
+            // Check if current user has already reviewed this product
+            if (user) {
+                const userReview = reviewsData?.find(review => review.user_id === user.id);
+                setUserHasReviewed(!!userReview);
+            }
+
+        } catch (error) {
+            console.error('Error fetching product details:', error);
+            setError('Failed to load product details');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
         fetchProductDetails();
     }, [id, user]);
 
@@ -149,13 +151,13 @@ const ProductPage = () => {
 
             // If it's in the wishlist, find the item ID for removal
             if (inWishlist) {
-                const wishlistItem = product && useWishlist().wishlistItems.find(item => item.product_id === product.id);
+                const wishlistItem = product && wishlistItems.find(item => item.product_id === product.id);
                 if (wishlistItem) {
                     setFavoriteId(wishlistItem.id);
                 }
             }
         }
-    }, [product, isInWishlist]);
+    }, [product, isInWishlist, wishlistItems]);
 
     const handleAddToCart = async () => {
         if (!product) return;
@@ -185,7 +187,7 @@ const ProductPage = () => {
                 await addToWishlist(product.id);
                 setIsFavorite(true);
                 // Update favoriteId after adding to wishlist
-                const wishlistItem = product && useWishlist().wishlistItems.find(item => item.product_id === product.id);
+                const wishlistItem = product && wishlistItems.find(item => item.product_id === product.id);
                 if (wishlistItem) {
                     setFavoriteId(wishlistItem.id);
                 }
@@ -198,7 +200,7 @@ const ProductPage = () => {
     // Function to handle review submission
     const handleReviewSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user || !id) {
+        if (!user) {
             navigate('/login');
             return;
         }
@@ -208,17 +210,17 @@ const ProductPage = () => {
             // Check if user has purchased the product
             const { data: orderItems, error: orderError } = await supabase
                 .from('order_items')
-                .select('*')
-                .eq('product_id', id);
+                .select('order_id, product_id')
+                .eq('product_id', product?.id);
 
             if (orderError) throw orderError;
 
-            // Check if the user has orders with this product
+            // Get orders by this user that are delivered/completed
             const { data: orders, error: userOrdersError } = await supabase
                 .from('orders')
                 .select('id')
                 .eq('user_id', user.id)
-                .eq('status', 'delivered');
+                .in('status', ['delivered', 'completed']);
 
             if (userOrdersError) throw userOrdersError;
 
@@ -234,29 +236,29 @@ const ProductPage = () => {
                 throw new Error('You can only review products you have purchased');
             }
 
-            // Insert the review
-            const { error: reviewError } = await supabase
+            const { data, error } = await supabase
                 .from('reviews')
                 .insert({
-                    product_id: id,
+                    product_id: product?.id,
                     user_id: user.id,
-                    username: user.full_name || 'Anonymous',
+                    username: user.full_name || user.email.split('@')[0],
                     rating: reviewRating,
                     text: reviewText,
                     created_at: new Date().toISOString()
-                });
+                })
+                .select()
+                .single();
 
-            if (reviewError) throw reviewError;
+            if (error) throw error;
 
-            // Add the new review to the state and reset form
-            const newReview: Review = {
-                id: 'temp-id', // Will be replaced when page refreshes
-                product_id: id,
-                user_id: user.id,
-                username: user.full_name || 'Anonymous',
-                rating: reviewRating,
-                text: reviewText,
-                created_at: new Date().toISOString()
+            const newReview = {
+                id: data.id,
+                product_id: data.product_id,
+                user_id: data.user_id,
+                username: data.username,
+                rating: data.rating,
+                text: data.text,
+                created_at: data.created_at
             };
 
             setReviews([newReview, ...reviews]);
@@ -267,9 +269,9 @@ const ProductPage = () => {
 
             // Refresh product details to update average rating
             fetchProductDetails();
-        } catch (error: any) {
-            console.error('Error submitting review:', error);
-            alert(error.message || 'Failed to submit review');
+            showNotification('Review submitted successfully', 'success');
+        } catch (error: unknown) {
+            showNotification(error instanceof Error ? error.message : 'Failed to submit review', 'error');
         } finally {
             setReviewSubmitting(false);
         }
